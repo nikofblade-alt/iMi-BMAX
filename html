@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>iMi BMAX</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#0c0508;
+  --accent1:#e11d48;
+  --accent2:#f59e0b;
+  --glow:rgba(225,29,72,.38);
+  --card:rgba(255,255,255,.06);
+  --border:rgba(255,255,255,.14);
+}
+*{box-sizing:border-box;transition:background-color .8s ease,border-color .8s ease,box-shadow .8s ease}
+body{margin:0;background:var(--bg);color:#f8fafc;font:14px/1.4 system-ui,-apple-system,sans-serif;transition:background 1.2s ease}
+#ph{position:relative;overflow:hidden;min-height:100vh;padding:12px 12px calc(24px + env(safe-area-inset-bottom))}
+#ph>*:not(#wm):not(.defs):not(#hudGrid){position:relative;z-index:2}
+#hudGrid{position:fixed;inset:0;background-image:radial-gradient(circle at 50% 18%,var(--glow),transparent 62%),linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:100% 100%,28px 28px,28px 28px;pointer-events:none;z-index:0}
+#wm{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;opacity:.26;pointer-events:none;z-index:1;animation:floatHero 6s ease-in-out infinite}
+#wm svg{width:100%;height:100%;max-width:440px}
+@keyframes floatHero{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.02)}}
+@keyframes pulseEye{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.65;transform:scale(.96)}}
+[hidden]{display:none!important}
+button{font:inherit;color:#f8fafc;border:1px solid var(--border);background:var(--card);border-radius:14px;cursor:pointer;backdrop-filter:blur(8px)}
+input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:0 10px;font:inherit;backdrop-filter:blur(6px)}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;margin-bottom:10px;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.k{color:#cbd5e1;font-size:12px;opacity:.82}.v{font-size:18px;font-weight:600}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.tc{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.btn{width:100%;height:46px;font-weight:600;border:0;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;margin-bottom:8px;box-shadow:0 4px 18px var(--glow)}
+.btn.st{background:transparent;border:1px solid #ef4444;color:#fca5a5;box-shadow:none}
+.btn.gh{background:var(--card);border:1px solid var(--border);box-shadow:none}
+.pr{width:100%;text-align:left;padding:10px 12px;margin-bottom:6px}
+.chips{display:grid;gap:6px;grid-template-columns:repeat(var(--c,3),minmax(0,1fr))}
+.ch{height:44px;position:relative;font-weight:500}
+.ch.sel{border-color:var(--accent1);background:color-mix(in srgb, var(--accent1) 24%, transparent);box-shadow:0 0 12px var(--glow)}
+.ch small{position:absolute;top:2px;right:4px;font-size:8px;color:#fbbf24;border:1px solid #fbbf24;border-radius:99px;padding:0 4px}
+.bk{background:none;border:0;color:#cbd5e1;padding:0 0 8px}
+.bar{height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-bottom:10px}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--border);white-space:nowrap}
+.pill.w{border-color:#22c55e;color:#86efac}.pill.l{border-color:#ef4444;color:#fca5a5}.pill.o{border-color:var(--accent2);color:#fde68a}
+.lb{font-size:12px;color:#cbd5e1;margin:8px 0 6px;font-weight:600;letter-spacing:.4px}
+.gt{background:linear-gradient(90deg,var(--accent1),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
+.lnk{display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;color:#f8fafc;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:6px;backdrop-filter:blur(8px)}
+.lr{display:grid;grid-template-columns:24px 32px minmax(0,1fr) 44px 52px 64px;gap:4px;align-items:center;padding:7px 8px;border-radius:10px;background:var(--card);margin-bottom:4px;font-size:13px}
+.lr.me{border:1px solid var(--accent1)}
+.av{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#1e293b}
+.pos{color:#86efac}.neg{color:#fca5a5}
+.ur{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;padding:8px;border-radius:10px;background:var(--card);margin-bottom:6px}
+.heroBadge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(255,255,255,.08);border:1px solid var(--border)}
+</style></head>
+<body><div id="ph">
+<div id="hudGrid"></div>
+<svg class="defs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="bmaxChrome" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e2e8f0"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+<linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--accent1)"/><stop offset="1" stop-color="var(--accent2)"/></linearGradient>
+<filter id="glw" x="-30%" y="-40%" width="160%" height="180%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<symbol id="imi" viewBox="0 0 280 85">
+  <rect x="6" y="10" width="268" height="64" rx="32" fill="rgba(15,23,42,.75)" stroke="url(#heroGrad)" stroke-width="2.5" filter="url(#glw)"/>
+  <circle cx="44" cy="42" r="10" fill="#fff" style="animation:pulseEye 3s infinite"/>
+  <circle cx="96" cy="42" r="10" fill="#fff" style="animation:pulseEye 3s infinite"/>
+  <line x1="54" y1="42" x2="86" y2="42" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <text x="192" y="51" font-family="system-ui,-apple-system,sans-serif" font-weight="900" font-size="28" text-anchor="middle" fill="url(#bmaxChrome)" letter-spacing="1.5">iMi <tspan fill="url(#heroGrad)">BMAX</tspan></text>
+</symbol>
+</defs></svg>
+
+<!-- ARRIERE-PLAN DYNAMIQUE HERO BMAX & BIG HERO 6 -->
+<div id="wm"><svg viewBox="0 0 360 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <!-- Halo énergétique central -->
+  <circle cx="180" cy="240" r="155" fill="none" stroke="url(#heroGrad)" stroke-width="1.5" stroke-dasharray="8 6" opacity=".55"/>
+  <circle cx="180" cy="240" r="125" fill="none" stroke="url(#heroGrad)" stroke-width="3" opacity=".35"/>
+  <!-- Silhouette Casque & Armure BMAX (Baymax) -->
+  <path d="M95 215 C95 135, 265 135, 265 215 C265 275, 235 305, 180 305 C125 305, 95 275, 95 215 Z" fill="rgba(255,255,255,.07)" stroke="url(#heroGrad)" stroke-width="3"/>
+  <!-- Visière & Yeux iconiques Baymax (•—•) -->
+  <rect x="115" y="192" width="130" height="44" rx="22" fill="rgba(10,15,28,.85)" stroke="url(#heroGrad)" stroke-width="2"/>
+  <circle cx="148" cy="214" r="11" fill="#ffffff" filter="url(#glw)"/>
+  <circle cx="212" cy="214" r="11" fill="#ffffff" filter="url(#glw)"/>
+  <line x1="159" y1="214" x2="201" y2="214" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <!-- Plastron Armure Hero + Puce d'accès -->
+  <path d="M70 345 Q180 305 290 345 L315 470 Q180 500 45 470 Z" fill="rgba(255,255,255,.05)" stroke="url(#heroGrad)" stroke-width="2.5"/>
+  <circle cx="222" cy="382" r="16" fill="rgba(255,255,255,.1)" stroke="url(#heroGrad)" stroke-width="2.5"/>
+  <rect x="215" y="378" width="14" height="8" rx="3" fill="#fff"/>
+  <!-- Icônes Crypto / Trading en orbite -->
+  <g font-family="system-ui,sans-serif" font-weight="800" text-anchor="middle" fill="#fff" font-size="13">
+    <circle cx="52" cy="120" r="24" fill="rgba(225,29,72,.25)" stroke="var(--accent1)" stroke-width="2"/><text x="52" y="125">BMAX</text>
+    <circle cx="308" cy="120" r="24" fill="rgba(245,158,11,.25)" stroke="var(--accent2)" stroke-width="2"/><text x="308" y="125">AI</text>
+    <circle cx="48" cy="310" r="22" fill="rgba(59,130,246,.2)" stroke="#60a5fa" stroke-width="1.5"/><text x="48" y="315">&#8383;</text>
+    <circle cx="312" cy="310" r="22" fill="rgba(16,185,129,.2)" stroke="#34d399" stroke-width="1.5"/><text x="312" y="315">TON</text>
+  </g>
+  <text x="180" y="525" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="#e2e8f0" letter-spacing="3">iMi BMAX · HERO SYSTEM</text>
+</svg></div>
+
+<div class="tc" style="margin-bottom:8px">
+  <svg width="136" height="42" viewBox="0 0 280 85" aria-hidden="true"><use href="#imi" width="280" height="85"/></svg>
+  <div style="text-align:right">
+    <span class="heroBadge" id="heroActorBadge">🛡️ Mode BMAX Armor</span>
+    <div class="k" style="font-size:10px;margin-top:2px" id="heroClock">Thème dynamique actif</div>
+  </div>
+</div>
+
+<div class="chips" id="tabs" style="--c:3;margin-bottom:6px"><button class="ch sel" id="tT">Trading</button><button class="ch" id="tAd" hidden>Admin</button><button class="ch" id="tP">Profil</button></div>
+<p id="err" class="k" style="color:#fca5a5;min-height:16px;margin:0 0 6px"></p>
+
+<div id="home">
+<div class="g2" style="margin-bottom:10px"><div class="cd" style="margin:0"><div class="k">Solde démo</div><div class="v" id="hBd"></div></div><div class="cd" style="margin:0"><div class="k">Solde réel</div><div class="v" id="hBr"></div></div></div>
+<div class="chips" style="--c:2"><button class="ch" id="mD">Mode démo</button><button class="ch" id="mR">Mode réel</button></div>
+<p class="k" id="mN" style="margin:6px 0 10px"></p>
+<div class="cd"><div class="k">Mes trades (mode choisi)</div><div class="g3" style="margin-top:6px"><div><div class="k">Trades</div><div class="v" id="hT"></div></div><div><div class="k">Victoires</div><div class="v" id="hW"></div></div><div><div class="k">Net</div><div class="v" id="hN"></div></div></div></div>
+<button class="btn" id="goP">Commencer à trader</button>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer"><span><b>Pocket Option</b><br><span class="k poT"></span></span>↗</a>
+<button class="btn gh" id="goA" style="margin-top:6px">Compte Pocket Option</button>
+<p class="k" style="margin:0">Lien de parrainage : une commission peut être versée au créateur de l'app. Le trading comporte un risque de perte totale du capital.</p></div>
+
+<div id="acct" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Compte Pocket Option</div>
+<div class="cd"><p class="k" id="aS" style="margin:0 0 8px"></p>
+<div class="k" style="margin-bottom:6px">1. Crée ton compte via notre lien de parrainage officiel :</div>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer" style="margin-bottom:10px"><span><b>Créer mon compte Pocket Option</b><br><span class="k">Lien de parrainage requis pour l'affiliation</span></span>↗</a>
+<div class="k" style="margin-bottom:6px">2. Connecte-toi automatiquement (ton email et mot de passe sont utilisés uniquement à l'instant T pour récupérer ton SSID/UID puis immédiatement oubliés par le robot) :</div>
+<div id="connForm">
+<div class="k" style="margin:8px 0 4px">Email Pocket Option</div><input id="poEmail" type="email" autocomplete="off" placeholder="exemple@gmail.com">
+<div class="k" style="margin:8px 0 4px">Mot de passe Pocket Option</div><input id="poPass" type="password" autocomplete="off" placeholder="••••••••">
+<div class="k" style="margin:8px 0 4px">Ton ID Pocket Option (pour vérification d'affiliation par l'admin)</div><input id="poAffId" inputmode="numeric" autocomplete="off" placeholder="Ex: 12345678">
+</div>
+<button class="btn" id="cn" style="margin:10px 0 0"></button></div>
+<p class="k" style="margin:0">Le robot iMi BMAX surveille ton SSID/UID et te notifiera avant son expiration pour renouveler ta session sans devoir retaper tes identifiants.</p></div>
+
+<div id="pairs" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Choisis la paire</div>
+<input id="pq" placeholder="Rechercher (EUR, OTC, Brent…)" style="margin-bottom:8px"><div id="plist"></div>
+<p class="k" style="margin:0">La direction par défaut est un point de départ ; pour les paires non marquées « vérifiée », elle n'a pas été confirmée. Tu peux l'inverser à l'étape suivante.</p></div>
+
+<div id="cfg" hidden><button class="bk" data-b="pairs">‹ Retour</button>
+<div class="cd"><div class="tc"><div><div class="k">Paire</div><div class="v" id="cP"></div></div><span class="pill o" id="cM"></span></div>
+<div class="chips" style="--c:2;margin-top:8px"><button class="ch" id="dC">Haussier (CALL)</button><button class="ch" id="dP">Baissier (PUT)</button></div></div>
+<div class="lb">Mise de départ (USD)</div><div class="chips" id="cB"></div>
+<div class="lb">Durée de chaque trade</div><div class="chips" id="cD" style="--c:4"></div>
+<div class="lb">Nombre de trades (par lots de 2)</div><div class="chips" id="cN"></div>
+<div class="lb">Doublements maximum après des pertes</div><div class="chips" id="cK" style="--c:4"></div>
+<div class="cd" style="margin-top:10px"><div class="k">Perte : mise x2. Gain : retour à la mise de départ.</div>
+<div class="tc" style="margin-top:6px"><span class="k">Mise maximale</span><b id="cap"></b></div><div class="tc"><span class="k">Perte maximale possible</span><b id="mx" class="neg"></b></div>
+<div class="k" id="wr" style="color:#f5b942;margin-top:6px"></div><div class="k" style="margin-top:6px">Doubler ne change pas tes chances de gagner : une série de pertes pèse vite.</div></div>
+<button class="ch" id="pl" style="width:100%;margin-bottom:10px"></button><button class="btn" id="go">Lancer iMi BMAX</button></div>
+
+<div id="run" hidden><div class="cd"><div class="bar"><div id="pb"></div></div>
+<div class="tc" style="margin-bottom:8px"><span class="pill">Trade <b id="rK"></b></span><span class="pill o" id="rL"></span></div><div class="pill" id="rP" style="margin-bottom:8px"></div>
+<div class="g2"><div><div class="k">Prochaine mise</div><div class="v" id="rA"></div></div><div><div class="k" id="rBl"></div><div class="v" id="rB"></div></div></div></div>
+<div class="cd"><div class="k">Bénéfice de la séance</div><div class="v" style="font-size:26px" id="rN"></div></div>
+<div class="g2"><button class="btn gh" id="pz">Pause</button><button class="btn st" id="stop">Stop</button></div>
+<p id="rS" class="k" style="color:#f5b942;margin:0 0 8px;min-height:16px"></p><div id="cards"></div>
+<p class="k" style="margin:0">Pause et Stop bloquent l'envoi du trade suivant ; un trade déjà ouvert ne peut pas être annulé et va jusqu'à son terme.</p></div>
+
+<div id="res" hidden><div class="cd"><div class="tc"><span class="k" id="eT"></span><span class="pill" id="eBd"></span></div>
+<div class="v" style="font-size:28px;margin:4px 0" id="eN"></div><div class="k" id="eP"></div>
+<div class="g2" style="margin-top:10px"><div class="cd" style="margin:0"><div class="k">Trades gagnés</div><div class="v" id="eW"></div></div><div class="cd" style="margin:0"><div class="k">Taux de victoire</div><div class="v" id="eR"></div></div></div>
+<div class="cd" style="margin:10px 0 0"><div class="k" id="eBl"></div><div class="v" id="eB"></div></div></div>
+<button class="btn" id="again">Commencer un nouveau trading</button><button class="btn gh" id="menu">Retour au menu</button></div>
+
+<div id="prof" hidden><div class="cd"><div class="k">Profil Telegram</div><div class="v" id="pN"></div><div class="k">Alias affiché dans le classement : <b id="pA"></b></div>
+<label class="tc" style="margin-top:8px;cursor:pointer"><span class="k">Afficher ma photo dans le classement</span><input id="showPhoto" type="checkbox" style="width:auto;height:auto"></label></div>
+<div class="lb">Mes soldes Pocket Option</div>
+<div class="cd"><div class="tc"><span class="k">Solde démo</span><b id="pBd"></b></div><div id="sD"></div></div>
+<div class="cd"><div class="tc"><span class="k">Solde réel</span><b id="pBr"></b></div><div id="sR"></div><div class="k" id="pRn" style="margin-top:4px"></div></div>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer"><span><b>Pocket Option</b><br><span class="k poT"></span></span>↗</a>
+<div class="lb" style="margin-top:12px">Classement</div>
+<div class="chips" style="--c:2;margin-bottom:8px"><button class="ch" id="lD" style="height:36px">Démo</button><button class="ch" id="lR" style="height:36px">Réel</button></div>
+<div class="lr k"><span></span><span></span><span>Alias</span><span>Trades</span><span>Victoire</span><span style="text-align:right">Profit</span></div><div id="lbl"></div>
+<p class="k" style="margin:6px 0 0">Tous les utilisateurs apparaissent avec un alias (nom partiellement masqué), leur nombre de trades, leur taux de victoire et leur profit, jamais leurs soldes. Photo visible seulement si la personne l'a activé. Il faut 10 trades pour être classé.</p></div>
+
+<div id="admin" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Panneau administrateur · iMi BMAX</div>
+<div id="ulist"></div>
+<div class="lb">Groupes</div>
+<div class="cd"><div class="g2"><input id="gName" placeholder="Nom du groupe"><input id="gBase" placeholder="Mise max" inputmode="decimal"></div>
+<div class="g2" style="margin-top:6px"><input id="gTotal" placeholder="Trades max" inputmode="numeric"><input id="gK" placeholder="Doublements max" inputmode="numeric"></div>
+<label class="tc" style="margin-top:6px;cursor:pointer"><span class="k">Mode réel autorisé pour ce groupe</span><input id="gReal" type="checkbox" checked style="width:auto;height:auto"></label>
+<button class="btn" id="gSave" style="margin-top:8px">Enregistrer le groupe</button></div>
+</div>
+</div>
+
+<script>
+// === SYSTEME DE THEME DYNAMIQUE BIG HERO 6 (CHANGE SELON LES HEURES & ACTEURS) ===
+const HERO_THEMES = [
+  { name: "🛡️ BMAX Armor (Baymax)", bg: "#14050a", a1: "#e11d48", a2: "#f59e0b", glow: "rgba(225,29,72,.38)" },
+  { name: "🤖 Hiro Hamada (Microbots)", bg: "#090617", a1: "#6366f1", a2: "#a855f7", glow: "rgba(99,102,241,.38)" },
+  { name: "⚡ GoGo Tomago (Vitesse)", bg: "#120f04", a1: "#eab308", a2: "#f97316", glow: "rgba(234,179,8,.35)" },
+  { name: "🧪 Honey Lemon (Chimie)", bg: "#140613", a1: "#ec4899", a2: "#fbbf24", glow: "rgba(236,72,153,.35)" },
+  { name: "⚔️ Wasabi (Plasma Laser)", bg: "#04120c", a1: "#10b981", a2: "#06b6d4", glow: "rgba(16,185,129,.35)" },
+  { name: "🔥 Fredzilla (Kaiju Fire)", bg: "#070c18", a1: "#2563eb", a2: "#f97316", glow: "rgba(37,99,235,.38)" }
+];
+let themeOffset = 0;
+function applyHeroTheme() {
+  const hour = new Date().getHours();
+  // Change automatiquement toutes les 4 heures selon les 6 héros du dessin animé (ou au clic sur le badge)
+  const idx = (Math.floor(hour / 4) + themeOffset) % HERO_THEMES.length;
+  const t = HERO_THEMES[idx];
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--accent1', t.a1);
+  r.setProperty('--accent2', t.a2);
+  r.setProperty('--glow', t.glow);
+  const badge = document.getElementById('heroActorBadge');
+  if (badge) badge.textContent = t.name;
+}
+applyHeroTheme();
+setInterval(applyHeroTheme, 60000);
+document.getElementById('heroActorBadge').onclick = () => { themeOffset++; applyHeroTheme(); };
+
+const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();}
+const REF='https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND';
+const CAB='https://pocketoption.com/en/cabinet/';
+const $=id=>document.getElementById(id);
+const f2=x=>(Math.round(x*100)/100).toFixed(2);
+const sg=x=>(x>0?'+':x<0?'-':'')+'$'+f2(Math.abs(x));
+const DL=d=>d==='call'?'Haussier':'Baissier';
+const cls=x=>x>0?'pos':x<0?'neg':'';
+const bal=x=>x==null?'–
