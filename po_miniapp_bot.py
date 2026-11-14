@@ -17,6 +17,9 @@ logging.basicConfig(
     handlers=[logging.FileHandler("bot.log"), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+# httpx logs full request URLs, which contain the Telegram bot token
+for _name in ("httpx", "httpcore"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
 
 TG_TOKEN = os.getenv("TG_TOKEN", "")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://xxx.up.railway.app")
