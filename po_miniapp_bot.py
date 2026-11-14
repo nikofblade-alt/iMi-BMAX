@@ -457,7 +457,7 @@ async def handle_admin_users(request: web.Request):
 
 async def handle_admin_user_action(request: web.Request):
     await check_admin(request)
-    await request.json()
+    data = await request.json()
     try:
         uid = int(data.get("uid"))
     except (TypeError, ValueError):
@@ -493,6 +493,26 @@ async def handle_admin_user_action(request: web.Request):
     conn.close()
     return web.json_response({"ok": True})
 
+async def handle_admin_group(request: web.Request):
+    await check_admin(request)
+    data = await request.json()
+    name = str(data.get("name", "")).strip()
+    if not name:
+        return web.json_response({"error": "Nom de groupe requis."}, status=400)
+    try:
+        max_base = float(data.get("max_base") or 10.0)
+        max_total = int(data.get("max_total") or 12)
+        max_k = int(data.get("max_k") or 5)
+    except (TypeError, ValueError):
+        return web.json_response({"error": "Valeurs invalides."}, status=400)
+    real_allowed = 1 if data.get("real_allowed") else 0
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("INSERT OR REPLACE INTO groups (name, max_base, max_total, max_k, real_allowed) VALUES (?, ?, ?, ?, ?)",
+                 (name, max_base, max_total, max_k, real_allowed))
+    conn.commit()
+    conn.close()
+    return web.json_response({"ok": True})
+
 # --- BOT TELEGRAM ---
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -515,6 +535,7 @@ def make_web_app() -> web.Application:
     app.router.add_post("/api/stop", handle_stop)
     app.router.add_get("/api/admin/users", handle_admin_users)
     app.router.add_post("/api/admin/user", handle_admin_user_action)
+    app.router.add_post("/api/admin/group", handle_admin_group)
     return app
 
 async def main():

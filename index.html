@@ -215,4 +215,185 @@ const f2=x=>(Math.round(x*100)/100).toFixed(2);
 const sg=x=>(x>0?'+':x<0?'-':'')+'$'+f2(Math.abs(x));
 const DL=d=>d==='call'?'Haussier':'Baissier';
 const cls=x=>x>0?'pos':x<0?'neg':'';
-const bal=x=>x==null?'–
+const bal=x=>x==null?'–':'$'+f2(x);
+let S=null,view='home',wasRunning=false,lastPlaced=0,lbMode='demo',poll=null;
+const VIEWS=['home','acct','pairs','cfg','run','res','prof','admin'];
+const show=v=>{view=v;VIEWS.forEach(n=>{const e=$(n);if(e)e.hidden=n!==v;});
+  $('tT').classList.toggle('sel',['home','acct','pairs','cfg','run','res'].includes(v));
+  $('tAd').classList.toggle('sel',v==='admin');$('tP').classList.toggle('sel',v==='prof');
+  if(v==='prof')renderProf();if(v==='admin')loadAdmin();if(v==='pairs')renderPairs();if(v==='acct')renderAcct();if(v==='cfg')renderCfg();
+  if(S)render();};
+const setErr=m=>{$('err').textContent=m||'';};
+async function api(path,method,body){
+  const opt={method:method||'GET',headers:{'X-Init-Data':tg?tg.initData:'','Content-Type':'application/json'}};
+  if(body!==undefined)opt.body=JSON.stringify(body);
+  try{
+    const r=await fetch(path,opt);let j={};
+    try{j=await r.json();}catch(e){}
+    if(!r.ok){setErr(j.error||('Erreur '+r.status));return null;}
+    setErr('');return j;
+  }catch(e){setErr('Connexion au serveur impossible.');return null;}
+}
+async function act(path,body){const j=await api(path,'POST',body||{});if(j&&j.uid!==undefined){S=j;render();}return j;}
+async function refresh(){const j=await api('/api/state');if(j){S=j;render();}return j;}
+
+const DURS=[5,15,30,60],BASES=[1,2,5,10],TOTALS=[2,4,6,8,10,12],KS=[1,2,3,5];
+function chips(id,arr,cur,fn,fmt){
+  const el=$(id);el.innerHTML='';
+  arr.forEach(v=>{const b=document.createElement('button');b.className='ch'+(v===cur?' sel':'');
+    b.textContent=fmt?fmt(v):v;b.onclick=()=>fn(v);el.appendChild(b);});
+}
+const modeKey=()=>S.mode==='real'?'real':'demo';
+function spark(arr){
+  if(!arr||arr.length<2)return '';
+  const mn=Math.min(...arr),mx=Math.max(...arr),rg=(mx-mn)||1;
+  const pts=arr.map((v,i)=>(i*(300/(arr.length-1))).toFixed(1)+','+(40-((v-mn)/rg)*36-2).toFixed(1)).join(' ');
+  return '<svg viewBox="0 0 300 40" width="100%" height="40"><polyline fill="none" stroke="url(#heroGrad)" stroke-width="2" points="'+pts+'"/></svg>';
+}
+
+function render(){
+  if(!S)return;
+  $('tAd').hidden=!S.is_admin;
+  document.querySelectorAll('.poL').forEach(a=>a.href=REF);
+  document.querySelectorAll('.poT').forEach(a=>a.textContent='Ouvrir Pocket Option');
+  $('hBd').textContent=bal(S.bal.demo);$('hBr').textContent=bal(S.bal.real);
+  $('mD').classList.toggle('sel',S.mode==='demo');$('mR').classList.toggle('sel',S.mode==='real');
+  $('mN').textContent=S.real_ok?'':'Mode réel verrouillé : il faut un compte connecté avec au moins $1 de solde réel et un groupe autorisé.';
+  const m=S.tr[modeKey()];
+  $('hT').textContent=m.w+m.l;$('hW').textContent=m.w;$('hN').textContent=sg(m.n);$('hN').className='v '+cls(m.n);
+  const connected=S.conn.demo||S.conn.real;
+  $('cn').textContent=connected?'Se déconnecter':'Connecter mon compte';
+  $('connForm').hidden=connected;
+  $('aS').textContent=connected?('Compte connecté'+(S.po_aff_id?' · ID '+S.po_aff_id:'')+(S.affiliate_verified?' · affiliation validée':' · en attente de validation par l\'admin')):'Compte non connecté.';
+  if(view==='cfg')renderCfg();
+  if(view==='run'||view==='res')renderRun();
+  if(S.running&&view!=='run'){show('run');return;}
+  if(wasRunning&&!S.running&&view==='run'){showResult();}
+  wasRunning=S.running;
+}
+
+function renderAcct(){}
+function renderPairs(){
+  const q=($('pq').value||'').toLowerCase();const box=$('plist');box.innerHTML='';
+  S.pairs.forEach((p,i)=>{
+    if(q&&!p.n.toLowerCase().includes(q))return;
+    const ps=S.pstats[p.n];
+    const b=document.createElement('button');b.className='pr';
+    b.innerHTML='<div class="tc"><b>'+p.n+'</b><span class="pill'+(p.verified?' w':'')+'">'+(p.verified?'vérifiée':'non vérifiée')+'</span></div><div class="k">'+DL(p.d)+(ps?' · '+ps.w+'V / '+ps.l+'D · '+sg(ps.n):'')+'</div>';
+    b.onclick=async()=>{const j=await act('/api/config',{pair:i});if(j)show('cfg');};
+    box.appendChild(b);
+  });
+}
+function renderCfg(){
+  const p=S.pairs[S.p];
+  $('cP').textContent=p.n;$('cM').textContent=S.mode==='real'?'RÉEL':'DÉMO';
+  $('dC').classList.toggle('sel',S.dir==='call');$('dP').classList.toggle('sel',S.dir==='put');
+  chips('cB',BASES,S.base,v=>act('/api/config',{base:v}),v=>'$'+v);
+  chips('cD',DURS,S.dur,v=>act('/api/config',{dur:v}),v=>v+' s');
+  chips('cN',TOTALS,S.total,v=>act('/api/config',{total:v}));
+  chips('cK',KS,S.k,v=>act('/api/config',{k:v}),v=>'x'+v);
+  $('cap').textContent='$'+f2(S.base*Math.pow(2,S.k));
+  $('mx').textContent='-$'+f2(S.max_loss);
+  $('wr').textContent='Probabilité d\'enchaîner '+(S.k+1)+' pertes de suite : '+f2(100*Math.pow(0.5,S.k+1))+' %';
+  $('pl').textContent='Pause après chaque lot de 2 trades : '+(S.pause_lot?'Oui':'Non');
+  $('pl').classList.toggle('sel',S.pause_lot);
+}
+function renderRun(){
+  const m=modeKey();
+  $('rK').textContent=S.placed+'/'+S.total;
+  $('rL').textContent=S.paused?'En pause':S.pause_req?'Pause demandée':S.stopped?'Arrêt demandé':S.running?'En cours':'Terminé';
+  $('rP').textContent=S.pairs[S.p].n+' · '+DL(S.dir);
+  $('rA').textContent='$'+f2(S.next);
+  $('rBl').textContent='Solde '+(m==='real'?'réel':'démo');$('rB').textContent=bal(S.bal[m]);
+  $('rN').textContent=sg(S.net);$('rN').className='v '+cls(S.net);$('rN').style.fontSize='26px';
+  $('pb').style.width=(S.total?Math.min(100,100*S.placed/S.total):0)+'%';
+  $('pz').textContent=S.paused?'Reprendre':S.pause_req?'Annuler la pause':'Pause';
+  $('rS').textContent=S.err||'';
+  const now=Date.now()/1000;
+  $('cards').innerHTML=S.trades.slice().reverse().map(t=>{
+    const open=t.st==='open';const left=open?Math.max(0,Math.ceil(t.end-now)):0;
+    return '<div class="cd"><div class="tc"><span>Trade '+t.i+' · $'+f2(t.stake)+'</span><span class="pill '+(t.st==='win'?'w':t.st==='loss'?'l':'o')+'">'+(open?'ouvert '+left+'s':t.st==='win'?'gagné '+sg(t.pnl):'perdu '+sg(t.pnl))+'</span></div></div>';
+  }).join('');
+}
+function showResult(){
+  const m=modeKey();const w=S.trades.filter(t=>t.st==='win').length,n=S.trades.filter(t=>t.st!=='open').length;
+  $('eT').textContent='Séance terminée · '+(m==='real'?'Réel':'Démo');
+  $('eBd').textContent=S.mode==='real'?'RÉEL':'DÉMO';
+  $('eN').textContent=sg(S.net);$('eN').className='v '+cls(S.net);
+  $('eP').textContent=S.pairs[S.p].n+' · '+DL(S.dir);
+  $('eW').textContent=w+'/'+n;$('eR').textContent=n?f2(100*w/n)+' %':'–';
+  $('eBl').textContent='Solde '+(m==='real'?'réel':'démo');$('eB').textContent=bal(S.bal[m]);
+  show('res');
+}
+function renderProf(){
+  if(!S)return;
+  $('pN').textContent=S.name;$('pA').textContent=S.alias;$('showPhoto').checked=!!S.show_photo;
+  $('pBd').textContent=bal(S.bal.demo);$('pBr').textContent=bal(S.bal.real);
+  $('sD').innerHTML=spark(S.hist.demo);$('sR').innerHTML=spark(S.hist.real);
+  $('pRn').textContent=S.real_ok?'':'Mode réel verrouillé pour ce compte.';
+  $('lD').classList.toggle('sel',lbMode==='demo');$('lR').classList.toggle('sel',lbMode==='real');
+  const rows=S.lb[lbMode];
+  const me=S.me[lbMode];
+  let h=rows.map(r=>lrow(r)).join('');
+  if(!rows.some(r=>r.me))h+='<div class="k" style="margin:6px 0 2px">Ta position ('+me.t+'/'+S.min_trades+' trades pour être classé)</div>'+lrow(me);
+  $('lbl').innerHTML=h||'<div class="k">Aucun utilisateur classé pour le moment.</div>';
+}
+function lrow(r){
+  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(r.photo?'<img class="av" src="'+r.photo+'">':'<span></span>')+'<span>'+r.a+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
+}
+
+async function loadAdmin(){
+  const j=await api('/api/admin/users');if(!j)return;
+  $('ulist').innerHTML='';
+  j.users.forEach(u=>{
+    const d=document.createElement('div');d.className='ur';
+    d.innerHTML='<div><b>'+(u.name||u.uid)+'</b><div class="k">'+(u.username?'@'+u.username+' · ':'')+'ID '+u.uid+' · PO '+u.po_aff_id+(u.running?' · en cours':'')+'</div></div>';
+    const bAff=document.createElement('button');bAff.className='ch';bAff.style.height='34px';bAff.textContent=u.affiliate_verified?'Affilié':'Valider';
+    bAff.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.affiliate_verified});loadAdmin();};
+    const bBl=document.createElement('button');bBl.className='ch';bBl.style.height='34px';bBl.textContent=u.blocked?'Débloquer':'Bloquer';
+    bBl.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadAdmin();};
+    const sel=document.createElement('select');sel.style.height='34px';sel.style.width='auto';
+    j.groups.forEach(g=>{const o=document.createElement('option');o.value=g.name;o.textContent=g.name;if(g.name===u.group)o.selected=true;sel.appendChild(o);});
+    sel.onchange=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'group',value:sel.value});loadAdmin();};
+    d.appendChild(bAff);d.appendChild(bBl);d.appendChild(sel);$('ulist').appendChild(d);
+  });
+}
+
+// --- Événements ---
+$('tT').onclick=()=>show(S&&S.running?'run':'home');
+$('tP').onclick=()=>show('prof');
+$('tAd').onclick=()=>show('admin');
+document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>show(b.dataset.b));
+$('mD').onclick=()=>act('/api/config',{mode:'demo'});
+$('mR').onclick=()=>act('/api/config',{mode:'real'});
+$('goA').onclick=()=>show('acct');
+$('goP').onclick=()=>{
+  if(S&&!(S.conn.demo||S.conn.real)){setErr('Connecte d\'abord ton compte Pocket Option.');show('acct');return;}
+  show('pairs');
+};
+$('pq').oninput=renderPairs;
+$('dC').onclick=()=>act('/api/config',{dir:'call'});
+$('dP').onclick=()=>act('/api/config',{dir:'put'});
+$('pl').onclick=()=>act('/api/config',{pause_lot:!S.pause_lot});
+$('go').onclick=async()=>{const j=await act('/api/start');if(j){wasRunning=true;show('run');}};
+$('pz').onclick=()=>act('/api/pause');
+$('stop').onclick=()=>act('/api/stop');
+$('again').onclick=()=>show('pairs');
+$('menu').onclick=()=>show('home');
+$('cn').onclick=async()=>{
+  if(S.conn.demo||S.conn.real){await act('/api/disconnect');return;}
+  const j=await act('/api/connect',{email:$('poEmail').value,password:$('poPass').value,aff_id:$('poAffId').value});
+  if(j){$('poPass').value='';$('poEmail').value='';}
+};
+$('showPhoto').onchange=e=>act('/api/config',{show_photo:e.target.checked}).then(()=>renderProf());
+$('lD').onclick=()=>{lbMode='demo';renderProf();};
+$('lR').onclick=()=>{lbMode='real';renderProf();};
+$('gSave').onclick=async()=>{
+  const j=await api('/api/admin/group','POST',{name:$('gName').value,max_base:$('gBase').value,max_total:$('gTotal').value,max_k:$('gK').value,real_allowed:$('gReal').checked});
+  if(j)loadAdmin();
+};
+
+refresh().then(()=>{if(S&&S.running)show('run');else show('home');});
+setInterval(()=>{if(view==='run'||(S&&S.running))refresh();},1500);
+</script>
+</body></html>
