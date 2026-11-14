@@ -1,0 +1,5 @@
+TG_TOKEN=colle_ici_le_token_de_BotFather
+WEBAPP_URL=https://xxx.up.railway.app
+DB_PATH=/data/imi.db
+ADMIN_IDS=123456789
+PO_REAL_REGION=
