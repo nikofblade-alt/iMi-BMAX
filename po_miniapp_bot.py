@@ -457,4 +457,95 @@ async def handle_admin_users(request: web.Request):
 
 async def handle_admin_user_action(request: web.Request):
     await check_admin(request)
-    data = a
+    await request.json()
+    try:
+        uid = int(data.get("uid"))
+    except (TypeError, ValueError):
+        return web.json_response({"error": "uid invalide."}, status=400)
+    action = data.get("action", "")
+    value = data.get("value")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    sess = USER_SESSIONS.get(uid)
+    if action == "block":
+        blocked = 1 if value else 0
+        c.execute("UPDATE users SET blocked=? WHERE uid=?", (blocked, uid))
+        if sess:
+            sess["blocked"] = bool(blocked)
+            if blocked: sess["stopped"] = True
+    elif action == "affiliate":
+        ok = 1 if value else 0
+        c.execute("UPDATE users SET affiliate_verified=? WHERE uid=?", (ok, uid))
+        if sess: sess["affiliate_verified"] = bool(ok)
+    elif action == "group":
+        grp = str(value or "Standard")
+        c.execute("SELECT 1 FROM groups WHERE name=?", (grp,))
+        if not c.fetchone():
+            conn.close()
+            return web.json_response({"error": "Groupe inconnu."}, status=400)
+        c.execute("UPDATE users SET group_name=? WHERE uid=?", (grp, uid))
+        if sess: sess["group"] = grp
+    else:
+        conn.close()
+        return web.json_response({"error": "Action inconnue."}, status=400)
+    conn.commit()
+    conn.close()
+    return web.json_response({"ok": True})
+
+# --- BOT TELEGRAM ---
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    get_session(user.id, user.first_name or "Trader", user.username or "")
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton("Ouvrir iMi BMAX", web_app=WebAppInfo(url=WEBAPP_URL))]])
+    await update.message.reply_text(
+        f"Bienvenue {user.first_name or ''} sur iMi BMAX. Appuie sur le bouton pour ouvrir l'application.",
+        reply_markup=kb,
+    )
+
+def make_web_app() -> web.Application:
+    app = web.Application()
+    app.router.add_get("/", handle_index)
+    app.router.add_get("/api/state", handle_state)
+    app.router.add_post("/api/config", handle_config)
+    app.router.add_post("/api/connect", handle_connect)
+    app.router.add_post("/api/disconnect", handle_disconnect)
+    app.router.add_post("/api/start", handle_start)
+    app.router.add_post("/api/pause", handle_pause)
+    app.router.add_post("/api/stop", handle_stop)
+    app.router.add_get("/api/admin/users", handle_admin_users)
+    app.router.add_post("/api/admin/user", handle_admin_user_action)
+    return app
+
+async def main():
+    init_db()
+
+    runner = web.AppRunner(make_web_app())
+    await runner.setup()
+    await web.TCPSite(runner, "0.0.0.0", PORT).start()
+    logger.info(f"Serveur web démarré sur le port {PORT} (base: {DB_PATH})")
+
+    tg_app = None
+    if TG_TOKEN:
+        tg_app = Application.builder().token(TG_TOKEN).build()
+        tg_app.add_handler(CommandHandler("start", cmd_start))
+        await tg_app.initialize()
+        await tg_app.start()
+        await tg_app.updater.start_polling()
+        logger.info("Bot Telegram démarré")
+    else:
+        logger.error("TG_TOKEN manquant: le bot Telegram n'est pas démarré")
+
+    watchdog = asyncio.create_task(ssid_watchdog_loop(tg_app))
+    try:
+        await asyncio.Event().wait()
+    finally:
+        watchdog.cancel()
+        if tg_app:
+            await tg_app.updater.stop()
+            await tg_app.stop()
+            await tg_app.shutdown()
+        await runner.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(main())
