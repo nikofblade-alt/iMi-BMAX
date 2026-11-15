@@ -26,6 +26,8 @@ TG_TOKEN = os.getenv("TG_TOKEN", "")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://xxx.up.railway.app")
 DB_PATH = os.getenv("DB_PATH", "imi.db")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+ALLOWED_IDS = [int(x.strip()) for x in os.getenv("ALLOWED_IDS", "").split(",") if x.strip().isdigit()]
+MEMBER_IDS = set(ADMIN_IDS) | set(ALLOWED_IDS)
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
 
@@ -347,8 +349,8 @@ async def get_user_from_request(request: web.Request) -> dict:
     uid = tg_user.get("id")
     if not uid:
         raise web.HTTPUnauthorized(text=json.dumps({"error": "Ouvre l'application depuis Telegram."}), content_type="application/json")
-    if uid not in ADMIN_IDS:
-        raise web.HTTPForbidden(text=json.dumps({"error": "Bot privé."}), content_type="application/json")
+    if uid not in MEMBER_IDS:
+        raise web.HTTPForbidden(text=json.dumps({"error": "Accès réservé aux membres invités."}), content_type="application/json")
     name = f"{tg_user.get('first_name', 'Trader')} {tg_user.get('last_name', '')}".strip()
     username = tg_user.get("username", "")
     s = get_session(uid, name, username)
@@ -409,6 +411,8 @@ async def po_restore(s: dict) -> POLive:
 async def handle_connect(request: web.Request):
     s = await get_user_from_request(request)
     data = await request.json()
+    if not data.get("consent"):
+        return web.json_response({"error": "Coche la case pour confirmer que tu as compris les risques."}, status=400)
     try:
         auth = parse_ssid(data.get("ssid", ""))
         live = POLive(auth)
@@ -571,8 +575,8 @@ async def handle_admin_group(request: web.Request):
 # --- BOT TELEGRAM ---
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id not in ADMIN_IDS:
-        await update.message.reply_text("Ce bot est privé.")
+    if user.id not in MEMBER_IDS:
+        await update.message.reply_text("Ce bot est privé, réservé aux membres invités.")
         return
     get_session(user.id, user.first_name or "Trader", user.username or "")
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Ouvrir iMi BMAX", web_app=WebAppInfo(url=WEBAPP_URL))]])
