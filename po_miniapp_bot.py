@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl
 from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
+from po_live import POLive, POError, parse_ssid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +26,8 @@ TG_TOKEN = os.getenv("TG_TOKEN", "")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://xxx.up.railway.app")
 DB_PATH = os.getenv("DB_PATH", "imi.db")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+ALLOWED_IDS = [int(x.strip()) for x in os.getenv("ALLOWED_IDS", "").split(",") if x.strip().isdigit()]
+MEMBER_IDS = set(ADMIN_IDS) | set(ALLOWED_IDS)
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
 
@@ -89,6 +92,13 @@ def init_db():
 
 USER_SESSIONS = {}
 
+def conn_from_ssid(ssid: str) -> dict:
+    try:
+        is_demo = int(json.loads(ssid).get("isDemo", 1))
+        return {"demo": is_demo == 1, "real": is_demo == 0}
+    except Exception:
+        return {"demo": False, "real": False}
+
 def get_session(uid: int, name: str = "Trader", username: str = ""):
     if uid not in USER_SESSIONS:
         conn = sqlite3.connect(DB_PATH)
@@ -115,7 +125,8 @@ def get_session(uid: int, name: str = "Trader", username: str = ""):
             "ssid_warned": bool(row[11]),
             "bal": {"demo": row[12], "real": row[13]},
             "hist": {"demo": json.loads(row[14] or "[]"), "real": json.loads(row[15] or "[]")},
-            "conn": {"demo": bool(row[8]), "real": bool(row[8])},
+            "conn": conn_from_ssid(row[8] or ""),
+            "po": None,
             "mode": "demo",
             "p": 0,
             "dir": DEFAULT_PAIRS[0]["d"],
@@ -146,14 +157,21 @@ def mask_alias(name: str, uid: int) -> str:
 def verify_init_data(init_data: str) -> dict:
     if not init_data:
         return {}
+    if not TG_TOKEN:
+        return {}
     parsed = dict(parse_qsl(init_data))
     hash_val = parsed.pop("hash", None)
-    if not hash_val or not TG_TOKEN:
-        return json.loads(parsed.get("user", "{}")) if "user" in parsed else {}
+    if not hash_val:
+        return {}
     data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
     secret_key = hmac.new(b"WebAppData", TG_TOKEN.encode(), hashlib.sha256).digest()
     calc_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
     if hmac.compare_digest(calc_hash, hash_val):
+        try:
+            if time.time() - int(parsed.get("auth_date", "0")) > 7 * 86400:
+                return {}
+        except ValueError:
+            return {}
         return json.loads(parsed.get("user", "{}"))
     return {}
 
@@ -284,22 +302,28 @@ async def trading_loop(s: dict):
             s["trades"].append(trade_rec)
             s["placed"] = idx
 
-            await asyncio.sleep(dur)
+            try:
+                status, pnl, new_bal = await s["po"].trade(pair_obj["sdk"], direction, stake, dur)
+            except Exception:
+                s["trades"].remove(trade_rec)
+                s["placed"] = idx - 1
+                raise
 
-            import random
-            is_win = random.choice([True, False])
-            if is_win:
-                pnl = round(stake * 0.85, 2)
-                trade_rec["st"] = "win"; trade_rec["pnl"] = pnl; step_k = 0; s["next"] = s["base"]
-            else:
-                pnl = -stake
-                trade_rec["st"] = "loss"; trade_rec["pnl"] = pnl; step_k += 1
+            trade_rec["st"] = status
+            trade_rec["pnl"] = pnl
+            if status == "win":
+                step_k = 0; s["next"] = s["base"]
+            elif status == "loss":
+                step_k += 1
                 if step_k <= s["k"]: s["next"] = round(s["base"] * (2 ** step_k), 2)
                 else: step_k = 0; s["next"] = s["base"]
 
             s["net"] = round(s["net"] + pnl, 2)
-            if s["bal"][s["mode"]] is not None:
+            if new_bal is not None:
+                s["bal"][s["mode"]] = round(new_bal, 2)
+            elif s["bal"][s["mode"]] is not None:
                 s["bal"][s["mode"]] = round(s["bal"][s["mode"]] + pnl, 2)
+            if s["bal"][s["mode"]] is not None:
                 s["hist"][s["mode"]].append(s["bal"][s["mode"]])
 
             conn = sqlite3.connect(DB_PATH)
@@ -315,14 +339,18 @@ async def trading_loop(s: dict):
                 s["paused"] = True
     except Exception as exc:
         logger.exception("Erreur dans la boucle de trading")
-        s["err"] = str(exc)
+        s["err"] = "Séance interrompue : %s" % exc
     finally:
         s["running"] = False
 
 async def get_user_from_request(request: web.Request) -> dict:
     init_data = request.headers.get("X-Init-Data", "")
     tg_user = verify_init_data(init_data)
-    uid = tg_user.get("id") or (ADMIN_IDS[0] if ADMIN_IDS else 100001)
+    uid = tg_user.get("id")
+    if not uid:
+        raise web.HTTPUnauthorized(text=json.dumps({"error": "Ouvre l'application depuis Telegram."}), content_type="application/json")
+    if uid not in MEMBER_IDS:
+        raise web.HTTPForbidden(text=json.dumps({"error": "Accès réservé aux membres invités."}), content_type="application/json")
     name = f"{tg_user.get('first_name', 'Trader')} {tg_user.get('last_name', '')}".strip()
     username = tg_user.get("username", "")
     s = get_session(uid, name, username)
@@ -368,40 +396,58 @@ async def handle_config(request: web.Request):
 
     return web.json_response(build_state_payload(s))
 
+async def po_restore(s: dict) -> POLive:
+    if not s["po_ssid"]:
+        raise POError("Compte Pocket Option non connecté.")
+    try:
+        auth = parse_ssid(s["po_ssid"])
+    except POError:
+        raise POError("Session Pocket Option invalide : reconnecte ton compte.")
+    live = POLive(auth)
+    await live.connect()
+    s["po"] = live
+    return live
+
 async def handle_connect(request: web.Request):
     s = await get_user_from_request(request)
     data = await request.json()
-    email = data.get("email", "").strip()
-    password = data.get("password", "").strip()
-    aff_id = data.get("aff_id", "").strip()
+    if not data.get("consent"):
+        return web.json_response({"error": "Coche la case pour confirmer que tu as compris les risques."}, status=400)
+    try:
+        auth = parse_ssid(data.get("ssid", ""))
+        live = POLive(auth)
+        await live.connect()
+    except POError as e:
+        return web.json_response({"error": str(e)}, status=400)
 
-    if not email or not password or not aff_id:
-        return web.json_response({"error": "Veuillez remplir l'email, le mot de passe et votre ID Pocket Option."}, status=400)
-
-    extracted_ssid = f'42["auth",{{"session":"bmax_extracted_{int(time.time())}","uid":{aff_id}}}]'
-    extracted_uid = aff_id
-    del email, password
-
+    if s.get("po"):
+        await s["po"].close()
+    s["po"] = live
+    acct = "demo" if live.is_demo else "real"
     now = time.time()
-    s["po_aff_id"] = aff_id
-    s["po_ssid"] = extracted_ssid
-    s["po_uid"] = extracted_uid
+    s["po_ssid"] = json.dumps(auth)
+    s["po_uid"] = str(auth["uid"])
+    s["po_aff_id"] = str(auth["uid"])
     s["ssid_updated_at"] = now
     s["ssid_warned"] = False
-    s["conn"] = {"demo": True, "real": True}
-    if s["bal"]["demo"] is None: s["bal"]["demo"] = 10000.00
-    if s["bal"]["real"] is None: s["bal"]["real"] = 0.00
+    s["conn"] = {"demo": bool(live.is_demo), "real": not live.is_demo}
+    s["mode"] = acct
+    if live.balance is not None:
+        s["bal"][acct] = live.balance
 
     conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE users SET po_aff_id=?, po_ssid=?, po_uid=?, ssid_updated_at=?, ssid_warned=0, bal_demo=?, bal_real=? WHERE uid=?",
-                 (aff_id, extracted_ssid, extracted_uid, now, s["bal"]["demo"], s["bal"]["real"], s["uid"]))
+                 (s["po_aff_id"], s["po_ssid"], s["po_uid"], now, s["bal"]["demo"], s["bal"]["real"], s["uid"]))
     conn.commit()
     conn.close()
-
     return web.json_response(build_state_payload(s))
 
 async def handle_disconnect(request: web.Request):
     s = await get_user_from_request(request)
+    s["stopped"] = True
+    if s.get("po"):
+        await s["po"].close()
+        s["po"] = None
     s["po_ssid"] = ""
     s["conn"] = {"demo": False, "real": False}
     conn = sqlite3.connect(DB_PATH)
@@ -417,6 +463,16 @@ async def handle_start(request: web.Request):
         return web.json_response({"error": "Une séance est déjà en cours."}, status=400)
     if not (s["conn"]["demo"] or s["conn"]["real"]):
         return web.json_response({"error": "Compte Pocket Option non connecté."}, status=400)
+
+    live = s.get("po")
+    if live is None or not live.connected:
+        try:
+            live = await po_restore(s)
+        except POError as e:
+            return web.json_response({"error": str(e)}, status=400)
+    if bool(live.is_demo) != (s["mode"] == "demo"):
+        kind = "démo" if live.is_demo else "réel"
+        return web.json_response({"error": "Ton SSID est celui du compte %s. Choisis ce mode, ou reconnecte avec le SSID de l'autre compte." % kind}, status=400)
 
     s["running"] = True; s["paused"] = False; s["pause_req"] = False; s["stopped"] = False
     s["task"] = asyncio.create_task(trading_loop(s))
@@ -519,6 +575,9 @@ async def handle_admin_group(request: web.Request):
 # --- BOT TELEGRAM ---
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    if user.id not in MEMBER_IDS:
+        await update.message.reply_text("Ce bot est privé, réservé aux membres invités.")
+        return
     get_session(user.id, user.first_name or "Trader", user.username or "")
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Ouvrir iMi BMAX", web_app=WebAppInfo(url=WEBAPP_URL))]])
     await update.message.reply_text(
