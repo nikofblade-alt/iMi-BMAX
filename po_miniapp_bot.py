@@ -29,6 +29,7 @@ DB_PATH = os.getenv("DB_PATH", "imi.db")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
+BOT_USERNAME = ""
 
 REF_LINK = "https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND"
 
@@ -246,8 +247,10 @@ def build_state_payload(s: dict) -> dict:
         "lb": lb, "me": me, "min_trades": min_trades,
         "validated": is_validated(s),
         "settings": {**community.get_settings(DB_PATH), "open": community.fmt_min(community.get_settings(DB_PATH)["open_min"]), "close": community.fmt_min(community.get_settings(DB_PATH)["close_min"])},
-        "limit": community.daily_limit(DB_PATH, uid),
-        "gate": dict(zip(("ok", "reason"), community.trading_gate(DB_PATH, uid))),
+        "limit": community.daily_limit(DB_PATH, uid, None, uid in ADMIN_IDS),
+        "elite": community.daily_limit(DB_PATH, uid, None, uid in ADMIN_IDS)["elite"],
+        "ref": community.referral_info(DB_PATH, uid, BOT_USERNAME),
+        "gate": dict(zip(("ok", "reason"), community.trading_gate(DB_PATH, uid, uid in ADMIN_IDS))),
         "challenges": community.challenges(DB_PATH, uid)[0],
     }
 
@@ -300,7 +303,7 @@ async def trading_loop(s: dict):
                 s["pause_req"] = False
                 continue
 
-            ok, reason = community.trading_gate(DB_PATH, uid)
+            ok, reason = community.trading_gate(DB_PATH, uid, uid in ADMIN_IDS)
             if not ok:
                 s["err"] = reason
                 break
@@ -347,6 +350,7 @@ async def trading_loop(s: dict):
                       (s["bal"]["demo"], s["bal"]["real"], json.dumps(s["hist"]["demo"][-50:]), json.dumps(s["hist"]["real"][-50:]), uid))
             conn.commit()
             conn.close()
+            community.after_trade(DB_PATH, uid, uid in ADMIN_IDS)
 
             if s["pause_lot"] and (idx % 2 == 0) and idx < s["total"] and not s["stopped"]:
                 s["paused"] = True
@@ -472,7 +476,7 @@ async def handle_start(request: web.Request):
     s = await get_user_from_request(request)
     if not is_validated(s):
         return web.json_response({"error": "Ton accès au trading n'est pas encore validé par le mentor."}, status=403)
-    ok, reason = community.trading_gate(DB_PATH, s["uid"])
+    ok, reason = community.trading_gate(DB_PATH, s["uid"], s["uid"] in ADMIN_IDS)
     if not ok:
         return web.json_response({"error": reason}, status=403)
     if s["running"]:
@@ -543,6 +547,7 @@ async def handle_admin_user_action(request: web.Request):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     sess = USER_SESSIONS.get(uid)
+    reward = False
     if action == "block":
         blocked = 1 if value else 0
         c.execute("UPDATE users SET blocked=? WHERE uid=?", (blocked, uid))
@@ -553,6 +558,17 @@ async def handle_admin_user_action(request: web.Request):
         ok = 1 if value else 0
         c.execute("UPDATE users SET affiliate_verified=? WHERE uid=?", (ok, uid))
         if sess: sess["affiliate_verified"] = bool(ok)
+        reward = bool(ok)
+    elif action == "elite":
+        conn.close()
+        try:
+            community.set_elite(DB_PATH, uid, bool(value))
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        if value:
+            community.reward_referrer(DB_PATH, uid)
+            if sess: sess["affiliate_verified"] = True
+        return web.json_response({"ok": True, "elite_count": community.elite_count(DB_PATH)})
     elif action == "group":
         grp = str(value or "Standard")
         c.execute("SELECT 1 FROM groups WHERE name=?", (grp,))
@@ -566,6 +582,8 @@ async def handle_admin_user_action(request: web.Request):
         return web.json_response({"error": "Action inconnue."}, status=400)
     conn.commit()
     conn.close()
+    if reward:
+        community.reward_referrer(DB_PATH, uid)
     return web.json_response({"ok": True})
 
 async def handle_admin_group(request: web.Request):
@@ -700,15 +718,27 @@ async def handle_admin_reading(request: web.Request):
         if lid in req:
             views.setdefault(uid, []).append((lid, sec, last))
     out = []
-    for uid, name, username, blocked, aff in db_rows("SELECT uid, name, username, blocked, affiliate_verified FROM users"):
+    for uid, name, username, blocked, aff, elite in db_rows("SELECT uid, name, username, blocked, affiliate_verified, elite FROM users"):
         v = views.get(uid, [])
         out.append({
-            "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or uid in ADMIN_IDS,
+            "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or uid in ADMIN_IDS, "elite": bool(elite),
             "seen": len(v), "read": sum(1 for lid, sec, _ in v if sec >= req[lid]), "total": len(req),
             "seconds": int(sum(sec for _, sec, _ in v)), "last_seen": max([x[2] or 0 for x in v], default=0),
         })
     out.sort(key=lambda r: (-r["seconds"], r["name"] or ""))
-    return web.json_response({"readers": out, "settings": {**community.get_settings(DB_PATH)}})
+    return web.json_response({"readers": out, "settings": {**community.get_settings(DB_PATH)},
+                              "elite_count": community.elite_count(DB_PATH), "elite_max": community.ELITE_MAX})
+
+async def handle_energy_exchange(request: web.Request):
+    s = await get_user_from_request(request)
+    data = await request.json()
+    try:
+        amount = int(data.get("amount"))
+    except (TypeError, ValueError):
+        return web.json_response({"error": "Quantité invalide."}, status=400)
+    if not community.exchange_energy(DB_PATH, s["uid"], amount):
+        return web.json_response({"error": "Pas assez d'énergies."}, status=400)
+    return web.json_response({"ok": True, "ref": community.referral_info(DB_PATH, s["uid"], BOT_USERNAME)})
 
 async def handle_admin_chat_delete(request: web.Request):
     await check_admin(request)
@@ -720,6 +750,9 @@ async def handle_admin_chat_delete(request: web.Request):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     get_session(user.id, user.first_name or "Trader", user.username or "")
+    arg = (context.args[0] if context.args else "")
+    if arg.startswith("ref_") and arg[4:].isdigit():
+        community.register_referral(DB_PATH, user.id, int(arg[4:]))
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Ouvrir iMi BMAX", web_app=WebAppInfo(url=WEBAPP_URL))]])
     await update.message.reply_text(
         f"Bienvenue {user.first_name or ''} sur iMi BMAX. Appuie sur le bouton pour ouvrir l'application.",
@@ -746,10 +779,12 @@ def make_web_app() -> web.Application:
     app.router.add_post("/api/admin/settings", handle_admin_settings)
     app.router.add_post("/api/admin/lesson", handle_admin_lesson)
     app.router.add_get("/api/admin/reading", handle_admin_reading)
+    app.router.add_post("/api/energy/exchange", handle_energy_exchange)
     app.router.add_post("/api/admin/chat/delete", handle_admin_chat_delete)
     return app
 
 async def main():
+    global BOT_USERNAME
     init_db()
 
     runner = web.AppRunner(make_web_app())
@@ -762,6 +797,7 @@ async def main():
         tg_app = Application.builder().token(TG_TOKEN).build()
         tg_app.add_handler(CommandHandler("start", cmd_start))
         await tg_app.initialize()
+        BOT_USERNAME = tg_app.bot.username or ""
         await tg_app.start()
         await tg_app.updater.start_polling()
         logger.info("Bot Telegram démarré")
