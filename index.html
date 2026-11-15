@@ -217,6 +217,7 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div class="cd"><input id="lsTitle" placeholder="Titre de la leçon" maxlength="120">
 <textarea id="lsBody" rows="6" placeholder="Texte de la leçon" style="width:100%;margin-top:6px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:inherit"></textarea>
 <button class="btn" id="lsAdd" style="margin:8px 0 0">Publier</button><div id="lsList" style="margin-top:8px"></div></div>
+<div class="lb">Équipe d'admins</div><div class="cd"><div class="k" id="tmInfo"></div><div id="tmList"></div></div>
 <div class="lb">Suivi de lecture et membres élite</div><div class="k" id="rdElite" style="margin-bottom:6px"></div><div id="rdList"></div>
 <div class="lb">Tous les inscrits</div>
 <div id="ulist"></div>
@@ -420,7 +421,7 @@ async function loadAdmin(){
     sel.onchange=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'group',value:sel.value});loadAdmin();};
     d.appendChild(bAff);d.appendChild(bBl);d.appendChild(sel);$('ulist').appendChild(d);
   });
-  renderSettings();loadAdminLessons();loadReaders();
+  renderSettings();loadAdminLessons();loadReaders();loadTeam();
 }
 const minToStr=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 const strToMin=t=>{if(!t)return 0;const p=t.split(':').map(Number);return p[0]*60+p[1];};
@@ -441,13 +442,33 @@ async function loadAdminLessons(){
     d.appendChild(t);d.appendChild(b);box.appendChild(d);
   });
 }
+async function loadTeam(){
+  const j=await api('/api/admin/team');if(!j)return;
+  $('tmInfo').textContent=S.is_owner?('Admins ajoutés : '+j.team.length+'/'+j.max+'. Ils gèrent les élèves, mais pas les autres admins.'):'Les admins ajoutés par le propriétaire.';
+  const box=$('tmList');box.innerHTML='';
+  j.team.forEach(m=>{
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr)';
+    const nm=document.createElement('b');nm.textContent=m.name||m.uid;
+    const st=document.createElement('div');st.className='k';
+    st.textContent='Défis '+m.challenges_done+'/'+m.challenges_total+' · '+m.minutes+' min de lecture · '+m.trades+' trades ('+m.wins+' gagnés) · '+m.messages+' messages · '+m.referrals+' filleuls validés · énergies '+m.energy+' · trades offerts restants '+m.credits;
+    const bx=document.createElement('div');bx.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:6px';
+    const bR=document.createElement('button');bR.className='ch';bR.style.height='34px';bR.textContent='Offrir des trades';
+    bR.onclick=async()=>{const n=parseInt(prompt('Combien de trades offrir à '+(m.name||m.uid)+' ? (1 à 100)')||'0',10);if(n>0){const r=await api('/api/admin/user','POST',{uid:m.uid,action:'reward',value:n});if(r){setErr(n+' trades offerts.');loadTeam();}}};
+    bx.appendChild(bR);
+    if(S.is_owner){const bD=document.createElement('button');bD.className='ch';bD.style.height='34px';bD.textContent='Remettre utilisateur';
+      bD.onclick=async()=>{if(confirm('Retirer l\'accès admin à '+(m.name||m.uid)+' ?')){const r=await api('/api/admin/user','POST',{uid:m.uid,action:'subadmin',value:false});if(r){loadTeam();loadReaders();}}};
+      bx.appendChild(bD);}
+    d.appendChild(nm);d.appendChild(st);d.appendChild(bx);box.appendChild(d);
+  });
+  if(!j.team.length){box.innerHTML='<div class="k">Aucun admin ajouté. Utilise le bouton « Admin » dans la liste ci-dessous.</div>';}
+}
 async function loadReaders(){
   const j=await api('/api/admin/reading');if(!j)return;
   $('rdElite').textContent='Membres élite : '+j.elite_count+'/'+j.elite_max+' (limite fixe, pas de défis).';
   const box=$('rdList');box.innerHTML='';
   if(!j.readers.length){box.innerHTML='<div class="k">Aucun inscrit pour le moment.</div>';return;}
   j.readers.forEach(u=>{
-    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr) auto auto auto';
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr)';
     const info=document.createElement('div');
     const nm=document.createElement('b');nm.textContent=u.name||u.uid;
     const st=document.createElement('div');st.className='k';
@@ -459,7 +480,12 @@ async function loadReaders(){
     bB.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadReaders();};
     const bE=document.createElement('button');bE.className='ch'+(u.elite?' sel':'');bE.style.height='34px';bE.textContent=u.elite?'Élite ✓':'Élite';
     bE.onclick=async()=>{const r=await api('/api/admin/user','POST',{uid:u.uid,action:'elite',value:!u.elite});if(r)loadReaders();};
-    d.appendChild(info);d.appendChild(bV);d.appendChild(bE);d.appendChild(bB);box.appendChild(d);
+    const bx=document.createElement('div');bx.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:6px';
+    bx.appendChild(bV);bx.appendChild(bE);bx.appendChild(bB);
+    if(S.is_owner&&!u.owner){const bA=document.createElement('button');bA.className='ch'+(u.sub_admin?' sel':'');bA.style.height='34px';bA.textContent=u.sub_admin?'Admin ✓':'Admin';
+      bA.onclick=async()=>{if(!u.sub_admin&&!confirm('Donner l\'accès admin à '+(u.name||u.uid)+' ?'))return;const r=await api('/api/admin/user','POST',{uid:u.uid,action:'subadmin',value:!u.sub_admin});if(r){loadReaders();loadTeam();}};
+      bx.appendChild(bA);}
+    d.appendChild(info);d.appendChild(bx);box.appendChild(d);
   });
 }
 

@@ -30,11 +30,15 @@ ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
 BOT_USERNAME = ""
+SUB_ADMINS = set()  # admins added by the owner from the app (ADMIN_IDS are the owners)
 USER_VIEW = set()  # admins currently previewing the app as a plain student
+
+def is_admin(uid):
+    return uid in ADMIN_IDS or uid in SUB_ADMINS
 
 def admin_limits(uid):
     """True when uid gets the admin/élite limits (an admin not in student view)."""
-    return uid in ADMIN_IDS and uid not in USER_VIEW
+    return is_admin(uid) and uid not in USER_VIEW
 
 REF_LINK = "https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND"
 
@@ -182,7 +186,7 @@ def verify_init_data(init_data: str) -> dict:
     return {}
 
 def is_validated(s: dict) -> bool:
-    return bool(s["affiliate_verified"]) or s["uid"] in ADMIN_IDS
+    return bool(s["affiliate_verified"]) or is_admin(s["uid"])
 
 def build_state_payload(s: dict) -> dict:
     uid = s["uid"]
@@ -243,7 +247,7 @@ def build_state_payload(s: dict) -> dict:
 
     return {
         "uid": uid, "name": s["name"], "alias": mask_alias(s["name"], uid), "show_photo": s["show_photo"],
-        "is_admin": uid in ADMIN_IDS, "user_view": uid in USER_VIEW, "affiliate_verified": s["affiliate_verified"], "po_aff_id": s["po_aff_id"],
+        "is_admin": is_admin(uid), "is_owner": uid in ADMIN_IDS, "user_view": uid in USER_VIEW, "affiliate_verified": s["affiliate_verified"], "po_aff_id": s["po_aff_id"],
         "mode": s["mode"], "real_ok": real_ok, "conn": s["conn"], "bal": s["bal"], "hist": s["hist"], "tr": tr,
         "pairs": DEFAULT_PAIRS, "pstats": pstats, "p": s["p"], "dir": s["dir"], "base": s["base"],
         "dur": s["dur"], "total": s["total"], "k": s["k"], "max_loss": max_loss, "pause_lot": s["pause_lot"],
@@ -374,7 +378,7 @@ async def get_user_from_request(request: web.Request) -> dict:
     name = f"{tg_user.get('first_name', 'Trader')} {tg_user.get('last_name', '')}".strip()
     username = tg_user.get("username", "")
     s = get_session(uid, name, username)
-    if s["blocked"] and uid not in ADMIN_IDS:
+    if s["blocked"] and not is_admin(uid):
         raise web.HTTPForbidden(text=json.dumps({"error": "Accès bloqué par le mentor."}), content_type="application/json")
     return s
 
@@ -514,9 +518,15 @@ async def handle_stop(request: web.Request):
     s["stopped"] = True; s["paused"] = False
     return web.json_response(build_state_payload(s))
 
-async def check_admin(request: web.Request):
+async def check_owner(request: web.Request):
     s = await get_user_from_request(request)
     if s["uid"] not in ADMIN_IDS:
+        raise web.HTTPForbidden(text=json.dumps({"error": "Réservé au propriétaire de l'app."}), content_type="application/json")
+    return s
+
+async def check_admin(request: web.Request):
+    s = await get_user_from_request(request)
+    if not is_admin(s["uid"]):
         raise web.HTTPForbidden(text=json.dumps({"error": "Accès réservé aux administrateurs."}), content_type="application/json")
     return s
 
@@ -540,13 +550,15 @@ async def handle_admin_users(request: web.Request):
     return web.json_response({"users": users, "groups": groups})
 
 async def handle_admin_user_action(request: web.Request):
-    await check_admin(request)
+    actor = await check_admin(request)
     data = await request.json()
     try:
         uid = int(data.get("uid"))
     except (TypeError, ValueError):
         return web.json_response({"error": "uid invalide."}, status=400)
     action = data.get("action", "")
+    if action in ("block", "affiliate", "elite", "group") and is_admin(uid) and actor["uid"] not in ADMIN_IDS:
+        return web.json_response({"error": "Seul le propriétaire peut modifier un admin."}, status=403)
     value = data.get("value")
 
     conn = sqlite3.connect(DB_PATH)
@@ -564,6 +576,31 @@ async def handle_admin_user_action(request: web.Request):
         c.execute("UPDATE users SET affiliate_verified=? WHERE uid=?", (ok, uid))
         if sess: sess["affiliate_verified"] = bool(ok)
         reward = bool(ok)
+    elif action == "subadmin":
+        conn.close()
+        await check_owner(request)
+        if uid in ADMIN_IDS:
+            return web.json_response({"error": "Le propriétaire est déjà admin."}, status=400)
+        try:
+            community.set_sub_admin(DB_PATH, uid, bool(value))
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        SUB_ADMINS.clear(); SUB_ADMINS.update(community.sub_admin_ids(DB_PATH))
+        if value:
+            community.reward_referrer(DB_PATH, uid)
+            if sess: sess["affiliate_verified"] = True
+        else:
+            USER_VIEW.discard(uid)
+        return web.json_response({"ok": True})
+    elif action == "reward":
+        conn.close()
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            n = 0
+        if not community.give_credits(DB_PATH, uid, n):
+            return web.json_response({"error": "Quantité invalide (1 à 100) ou utilisateur inconnu."}, status=400)
+        return web.json_response({"ok": True})
     elif action == "elite":
         conn.close()
         try:
@@ -684,7 +721,7 @@ async def handle_chat_post(request: web.Request):
         return web.json_response({"error": "Attends quelques secondes entre deux messages."}, status=429)
     CHAT_LAST[s["uid"]] = now
     db_exec("INSERT INTO chat (uid, name, text, is_admin, ts) VALUES (?, ?, ?, ?, ?)",
-            (s["uid"], s["name"], text, 1 if s["uid"] in ADMIN_IDS else 0, now))
+            (s["uid"], s["name"], text, 1 if is_admin(s["uid"]) else 0, now))
     return web.json_response({"ok": True})
 
 async def handle_admin_settings(request: web.Request):
@@ -723,10 +760,10 @@ async def handle_admin_reading(request: web.Request):
         if lid in req:
             views.setdefault(uid, []).append((lid, sec, last))
     out = []
-    for uid, name, username, blocked, aff, elite in db_rows("SELECT uid, name, username, blocked, affiliate_verified, elite FROM users"):
+    for uid, name, username, blocked, aff, elite, sub in db_rows("SELECT uid, name, username, blocked, affiliate_verified, elite, sub_admin FROM users"):
         v = views.get(uid, [])
         out.append({
-            "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or uid in ADMIN_IDS, "elite": bool(elite),
+            "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or is_admin(uid), "elite": bool(elite), "sub_admin": bool(sub), "owner": uid in ADMIN_IDS,
             "seen": len(v), "read": sum(1 for lid, sec, _ in v if sec >= req[lid]), "total": len(req),
             "seconds": int(sum(sec for _, sec, _ in v)), "last_seen": max([x[2] or 0 for x in v], default=0),
         })
@@ -743,6 +780,10 @@ async def handle_admin_view(request: web.Request):
     else:
         USER_VIEW.discard(s["uid"])
     return web.json_response({"ok": True, "user_view": s["uid"] in USER_VIEW})
+
+async def handle_admin_team(request: web.Request):
+    await check_admin(request)
+    return web.json_response({"team": community.team_report(DB_PATH), "max": community.SUB_ADMIN_MAX})
 
 async def handle_energy_exchange(request: web.Request):
     s = await get_user_from_request(request)
@@ -794,6 +835,7 @@ def make_web_app() -> web.Application:
     app.router.add_post("/api/admin/settings", handle_admin_settings)
     app.router.add_post("/api/admin/lesson", handle_admin_lesson)
     app.router.add_get("/api/admin/reading", handle_admin_reading)
+    app.router.add_get("/api/admin/team", handle_admin_team)
     app.router.add_post("/api/admin/view", handle_admin_view)
     app.router.add_post("/api/energy/exchange", handle_energy_exchange)
     app.router.add_post("/api/admin/chat/delete", handle_admin_chat_delete)
@@ -802,6 +844,7 @@ def make_web_app() -> web.Application:
 async def main():
     global BOT_USERNAME
     init_db()
+    SUB_ADMINS.update(community.sub_admin_ids(DB_PATH))
 
     runner = web.AppRunner(make_web_app())
     await runner.setup()
