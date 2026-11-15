@@ -102,11 +102,23 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
   </div>
 </div>
 
-<div class="chips" id="tabs" style="--c:3;margin-bottom:6px"><button class="ch sel" id="tT">Trading</button><button class="ch" id="tAd" hidden>Admin</button><button class="ch" id="tP">Profil</button></div>
+<div class="chips" id="tabs" style="--c:3;margin-bottom:6px"><button class="ch sel" id="tT">Trading</button><button class="ch" id="tL">Cours</button><button class="ch" id="tC">Défis</button><button class="ch" id="tD">Discussion</button><button class="ch" id="tP">Profil</button><button class="ch" id="tAd" hidden>Admin</button></div>
 <p id="err" class="k" style="color:#fca5a5;min-height:16px;margin:0 0 6px"></p>
 
 <div id="home">
 <div class="g2" style="margin-bottom:10px"><div class="cd" style="margin:0"><div class="k">Solde démo</div><div class="v" id="hBd"></div></div><div class="cd" style="margin:0"><div class="k">Solde réel</div><div class="v" id="hBr"></div></div></div>
+<p class="k" id="hGate" style="color:#fbbf24;margin:0 0 8px" hidden></p>
+<div class="cd" id="warn" style="border-color:#f59e0b"><div class="v" style="font-size:15px;margin-bottom:4px">À lire avant de trader</div>
+<div class="k" style="line-height:1.5">
+• Les options binaires font perdre de l'argent à la majorité des débutants. Avec un gain d'environ 85 % par trade gagné, il faut gagner plus de 54 % de tes trades juste pour ne pas perdre.<br>
+• Doubler la mise après une perte peut te faire perdre tout ton capital en quelques trades.<br>
+• Pause et Stop ne changent pas tes chances de gagner : ils limitent seulement le nombre de trades.<br>
+• Ne trade qu'avec de l'argent que tu peux te permettre de perdre. Commence par le mode démo.<br>
+• Les résultats passés ne garantissent rien. Cette application n'est pas un conseil financier.<br>
+• Ta session Pocket Option est conservée par le bot pour passer les ordres. Tu peux l'effacer avec « Se déconnecter ».<br>
+• Pocket Option n'autorise pas officiellement les bots : ton compte peut être restreint.<br>
+• Le créateur de l'app reçoit une commission sur les inscriptions faites via son lien de parrainage.</div></div>
+<p class="k" id="hLim" style="margin:0 0 8px"></p>
 <div class="chips" style="--c:2"><button class="ch" id="mD">Mode démo</button><button class="ch" id="mR">Mode réel</button></div>
 <p class="k" id="mN" style="margin:6px 0 10px"></p>
 <div class="cd"><div class="k">Mes trades (mode choisi)</div><div class="g3" style="margin-top:6px"><div><div class="k">Trades</div><div class="v" id="hT"></div></div><div><div class="k">Victoires</div><div class="v" id="hW"></div></div><div><div class="k">Net</div><div class="v" id="hN"></div></div></div></div>
@@ -157,6 +169,24 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div class="cd" style="margin:10px 0 0"><div class="k" id="eBl"></div><div class="v" id="eB"></div></div></div>
 <button class="btn" id="again">Commencer un nouveau trading</button><button class="btn gh" id="menu">Retour au menu</button></div>
 
+<div id="learn" hidden><div class="v" style="margin-bottom:8px">Cours du mentor</div>
+<div id="llist"></div>
+<div id="lrd" hidden><button class="bk" id="lrBack">‹ Retour aux leçons</button>
+<div class="v" id="lrT" style="margin-bottom:6px"></div>
+<div id="lrB" style="max-height:52vh;overflow-y:auto;white-space:pre-wrap;line-height:1.6;font-size:15px;padding:12px;border-radius:14px;background:var(--card);border:1px solid var(--border)"></div>
+<div class="g2" style="margin-top:8px"><button class="btn gh" id="lrPlay" style="margin:0">Pause du défilement</button><button class="btn gh" id="lrSpd" style="margin:0">Vitesse : normale</button></div>
+<p class="k" id="lrS" style="margin:8px 0 0"></p></div></div>
+
+<div id="chal" hidden><div class="v" style="margin-bottom:4px">Défis</div>
+<p class="k" id="chSum" style="margin:0 0 8px"></p><div id="chList"></div>
+<p class="k" style="margin:0">Chaque défi relevé débloque automatiquement des trades en plus par jour.</p></div>
+
+<div id="chat" hidden><div class="v" style="margin-bottom:4px">Discussion</div>
+<p class="k" id="cNote" style="margin:0 0 8px"></p>
+<div id="cMsgs" style="max-height:52vh;overflow-y:auto;margin-bottom:8px"></div>
+<div id="cBox"><div class="g2" style="grid-template-columns:minmax(0,1fr) auto"><input id="cIn" maxlength="500" placeholder="Partage une idée pour progresser…"><button class="ch" id="cSend" style="padding:0 16px">Envoyer</button></div>
+<p class="k" style="margin:6px 0 0">Sois respectueux. Ici, on échange des idées, pas des promesses de gains.</p></div></div>
+
 <div id="prof" hidden><div class="cd"><div class="k">Profil Telegram</div><div class="v" id="pN"></div><div class="k">Alias affiché dans le classement : <b id="pA"></b></div>
 <label class="tc" style="margin-top:8px;cursor:pointer"><span class="k">Afficher ma photo dans le classement</span><input id="showPhoto" type="checkbox" style="width:auto;height:auto"></label></div>
 <div class="lb">Mes soldes Pocket Option</div>
@@ -169,6 +199,19 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <p class="k" style="margin:6px 0 0">Tous les utilisateurs apparaissent avec un alias (nom partiellement masqué), leur nombre de trades, leur taux de victoire et leur profit, jamais leurs soldes. Photo visible seulement si la personne l'a activé. Il faut 10 trades pour être classé.</p></div>
 
 <div id="admin" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Panneau administrateur · iMi BMAX</div>
+<div class="lb">Trading pour tout le monde</div>
+<div class="cd"><button class="btn" id="stSwitch"></button>
+<div class="g2"><div><div class="k" style="margin-bottom:4px">Ouverture (heure de Goma)</div><input id="stOpen" type="time"></div><div><div class="k" style="margin-bottom:4px">Fermeture</div><input id="stClose" type="time"></div></div>
+<div class="k" style="margin:8px 0 4px">Trades par jour pour chaque élève (avant défis)</div><input id="stBase" inputmode="numeric">
+<div class="k" style="margin:8px 0 4px">Message affiché si le trading est suspendu (facultatif)</div><input id="stNotice" maxlength="300">
+<p class="k" style="margin:6px 0">Ouverture et fermeture identiques : toujours ouvert. Un trade déjà ouvert va jusqu'à son terme.</p>
+<button class="btn" id="stSave" style="margin:0">Enregistrer</button></div>
+<div class="lb">Cours : publier une leçon</div>
+<div class="cd"><input id="lsTitle" placeholder="Titre de la leçon" maxlength="120">
+<textarea id="lsBody" rows="6" placeholder="Texte de la leçon" style="width:100%;margin-top:6px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:inherit"></textarea>
+<button class="btn" id="lsAdd" style="margin:8px 0 0">Publier</button><div id="lsList" style="margin-top:8px"></div></div>
+<div class="lb">Suivi de lecture</div><div id="rdList"></div>
+<div class="lb">Tous les inscrits</div>
 <div id="ulist"></div>
 <div class="lb">Groupes</div>
 <div class="cd"><div class="g2"><input id="gName" placeholder="Nom du groupe"><input id="gBase" placeholder="Mise max" inputmode="decimal"></div>
@@ -210,16 +253,19 @@ const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();}
 const REF='https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND';
 const CAB='https://pocketoption.com/en/cabinet/';
 const $=id=>document.getElementById(id);
+const esc=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const f2=x=>(Math.round(x*100)/100).toFixed(2);
 const sg=x=>(x>0?'+':x<0?'-':'')+'$'+f2(Math.abs(x));
 const DL=d=>d==='call'?'Haussier':'Baissier';
 const cls=x=>x>0?'pos':x<0?'neg':'';
 const bal=x=>x==null?'–':'$'+f2(x);
 let S=null,view='home',wasRunning=false,lastPlaced=0,lbMode='demo',poll=null;
-const VIEWS=['home','acct','pairs','cfg','run','res','prof','admin'];
-const show=v=>{view=v;VIEWS.forEach(n=>{const e=$(n);if(e)e.hidden=n!==v;});
+const VIEWS=['home','acct','pairs','cfg','run','res','prof','admin','learn','chal','chat'];
+const show=v=>{stopReader();stopChat();view=v;VIEWS.forEach(n=>{const e=$(n);if(e)e.hidden=n!==v;});
   $('tT').classList.toggle('sel',['home','acct','pairs','cfg','run','res'].includes(v));
   $('tAd').classList.toggle('sel',v==='admin');$('tP').classList.toggle('sel',v==='prof');
+  $('tL').classList.toggle('sel',v==='learn');$('tC').classList.toggle('sel',v==='chal');$('tD').classList.toggle('sel',v==='chat');
+  if(v==='learn')loadLessons();if(v==='chal')refresh().then(renderChal);if(v==='chat')startChat();
   if(v==='prof')renderProf();if(v==='admin')loadAdmin();if(v==='pairs')renderPairs();if(v==='acct')renderAcct();if(v==='cfg')renderCfg();
   if(S)render();};
 const setErr=m=>{$('err').textContent=m||'';};
@@ -252,7 +298,10 @@ function spark(arr){
 
 function render(){
   if(!S)return;
-  $('tAd').hidden=!S.is_admin;
+  $('tAd').hidden=!S.is_admin;$('tD').hidden=!S.validated;
+  const gateMsg=!S.validated?'Ton accès au trading attend la validation du mentor. En attendant, lis les cours et relève les défis.':(S.gate.ok?'':S.gate.reason);
+  $('hGate').textContent=gateMsg;$('hGate').hidden=!gateMsg;
+  $('hLim').textContent="Trades aujourd'hui : "+S.limit.used+'/'+S.limit.limit+' (base '+S.limit.base+' + '+S.limit.bonus+' débloqués par les défis)';
   document.querySelectorAll('.poL').forEach(a=>a.href=REF);
   document.querySelectorAll('.poT').forEach(a=>a.textContent='Ouvrir Pocket Option');
   $('hBd').textContent=bal(S.bal.demo);$('hBr').textContent=bal(S.bal.real);
@@ -278,7 +327,7 @@ function renderPairs(){
     if(q&&!p.n.toLowerCase().includes(q))return;
     const ps=S.pstats[p.n];
     const b=document.createElement('button');b.className='pr';
-    b.innerHTML='<div class="tc"><b>'+p.n+'</b><span class="pill'+(p.verified?' w':'')+'">'+(p.verified?'vérifiée':'non vérifiée')+'</span></div><div class="k">'+DL(p.d)+(ps?' · '+ps.w+'V / '+ps.l+'D · '+sg(ps.n):'')+'</div>';
+    b.innerHTML='<div class="tc"><b>'+esc(p.n)+'</b><span class="pill'+(p.verified?' w':'')+'">'+(p.verified?'vérifiée':'non vérifiée')+'</span></div><div class="k">'+DL(p.d)+(ps?' · '+ps.w+'V / '+ps.l+'D · '+sg(ps.n):'')+'</div>';
     b.onclick=async()=>{const j=await act('/api/config',{pair:i});if(j)show('cfg');};
     box.appendChild(b);
   });
@@ -338,7 +387,7 @@ function renderProf(){
   $('lbl').innerHTML=h||'<div class="k">Aucun utilisateur classé pour le moment.</div>';
 }
 function lrow(r){
-  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(r.photo?'<img class="av" src="'+r.photo+'">':'<span></span>')+'<span>'+r.a+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
+  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(/^https:\/\//.test(r.photo||'')?'<img class="av" src="'+esc(r.photo)+'">':'<span></span>')+'<span>'+esc(r.a)+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
 }
 
 async function loadAdmin(){
@@ -346,7 +395,7 @@ async function loadAdmin(){
   $('ulist').innerHTML='';
   j.users.forEach(u=>{
     const d=document.createElement('div');d.className='ur';
-    d.innerHTML='<div><b>'+(u.name||u.uid)+'</b><div class="k">'+(u.username?'@'+u.username+' · ':'')+'ID '+u.uid+' · PO '+u.po_aff_id+(u.running?' · en cours':'')+'</div></div>';
+    d.innerHTML='<div><b>'+esc(u.name||u.uid)+'</b><div class="k">'+(u.username?'@'+esc(u.username)+' · ':'')+'ID '+u.uid+' · PO '+esc(u.po_aff_id)+(u.running?' · en cours':'')+'</div></div>';
     const bAff=document.createElement('button');bAff.className='ch';bAff.style.height='34px';bAff.textContent=u.affiliate_verified?'Affilié':'Valider';
     bAff.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.affiliate_verified});loadAdmin();};
     const bBl=document.createElement('button');bBl.className='ch';bBl.style.height='34px';bBl.textContent=u.blocked?'Débloquer':'Bloquer';
@@ -356,17 +405,140 @@ async function loadAdmin(){
     sel.onchange=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'group',value:sel.value});loadAdmin();};
     d.appendChild(bAff);d.appendChild(bBl);d.appendChild(sel);$('ulist').appendChild(d);
   });
+  renderSettings();loadAdminLessons();loadReaders();
+}
+const minToStr=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const strToMin=t=>{if(!t)return 0;const p=t.split(':').map(Number);return p[0]*60+p[1];};
+function renderSettings(){
+  if(!S)return;const st=S.settings;
+  $('stSwitch').textContent=st.trading_enabled?'Trading ouvert : appuie pour TOUT SUSPENDRE':'Trading SUSPENDU : appuie pour rouvrir';
+  $('stSwitch').className='btn'+(st.trading_enabled?' st':'');
+  $('stOpen').value=st.open;$('stClose').value=st.close;$('stBase').value=st.base_daily;$('stNotice').value=st.notice||'';
+}
+async function loadAdminLessons(){
+  const j=await api('/api/lessons');if(!j)return;
+  const box=$('lsList');box.innerHTML='';
+  j.lessons.forEach((l,i)=>{
+    const d=document.createElement('div');d.className='tc';d.style.marginBottom='6px';
+    const t=document.createElement('span');t.textContent=(i+1)+'. '+l.title;
+    const b=document.createElement('button');b.className='ch';b.style.height='32px';b.style.padding='0 12px';b.textContent='Supprimer';
+    b.onclick=async()=>{if(confirm('Supprimer cette leçon et son suivi de lecture ?')){await api('/api/admin/lesson','POST',{action:'delete',id:l.id});loadAdminLessons();loadReaders();}};
+    d.appendChild(t);d.appendChild(b);box.appendChild(d);
+  });
+}
+async function loadReaders(){
+  const j=await api('/api/admin/reading');if(!j)return;
+  const box=$('rdList');box.innerHTML='';
+  if(!j.readers.length){box.innerHTML='<div class="k">Aucun inscrit pour le moment.</div>';return;}
+  j.readers.forEach(u=>{
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr) auto auto';
+    const info=document.createElement('div');
+    const nm=document.createElement('b');nm.textContent=u.name||u.uid;
+    const st=document.createElement('div');st.className='k';
+    st.textContent=u.read+'/'+u.total+' leçons lues · '+u.seen+' vues · '+Math.round(u.seconds/60)+' min'+(u.last_seen?' · vu le '+new Date(u.last_seen*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):' · jamais');
+    info.appendChild(nm);info.appendChild(st);
+    const bV=document.createElement('button');bV.className='ch';bV.style.height='34px';bV.textContent=u.validated?'Retirer l\'accès':'Valider';
+    bV.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.validated});loadReaders();};
+    const bB=document.createElement('button');bB.className='ch';bB.style.height='34px';bB.textContent=u.blocked?'Débloquer':'Bloquer';
+    bB.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadReaders();};
+    d.appendChild(info);d.appendChild(bV);d.appendChild(bB);box.appendChild(d);
+  });
+}
+
+// --- Cours ---
+let lessons=[],cur=null,scrollTimer=null,pingTimer=null,scrolling=true,pos=0,speedIdx=1;
+const SPEEDS=[[0.5,'lente'],[1,'normale'],[2,'rapide']];
+function stopReader(){clearInterval(scrollTimer);clearInterval(pingTimer);scrollTimer=pingTimer=null;cur=null;}
+async function loadLessons(){
+  stopReader();$('lrd').hidden=true;$('llist').hidden=false;
+  const j=await api('/api/lessons');if(!j)return;lessons=j.lessons;
+  const box=$('llist');box.innerHTML='';
+  if(!lessons.length){box.innerHTML='<div class="k">Aucune leçon publiée pour le moment.</div>';return;}
+  lessons.forEach((l,i)=>{
+    const b=document.createElement('button');b.className='pr';
+    b.innerHTML='<div class="tc"><b>'+(i+1)+'. '+esc(l.title)+'</b><span class="pill'+(l.read?' w':'')+'">'+(l.read?'lue':l.seconds>0?'en cours':'nouvelle')+'</span></div>';
+    b.onclick=()=>openLesson(l);box.appendChild(b);
+  });
+}
+function updRd(){
+  if(!cur)return;
+  $('lrS').textContent=cur.seconds>=cur.required?'Lecture validée. Merci d\'avoir pris le temps.':'Temps de lecture : '+cur.seconds+' s sur '+cur.required+' s nécessaires pour valider la leçon.';
+  $('lrPlay').textContent=scrolling?'Pause du défilement':'Reprendre le défilement';
+  $('lrSpd').textContent='Vitesse : '+SPEEDS[speedIdx][1];
+}
+async function pingLesson(){
+  if(!cur||document.visibilityState!=='visible')return;
+  const j=await api('/api/lesson/ping','POST',{lesson_id:cur.id});
+  if(j&&cur){cur.seconds=j.seconds;updRd();}
+}
+function openLesson(l){
+  stopReader();cur=l;$('llist').hidden=true;$('lrd').hidden=false;$('lrT').textContent=l.title;
+  const body=$('lrB');body.textContent=l.body;body.scrollTop=0;pos=0;scrolling=true;updRd();
+  scrollTimer=setInterval(()=>{
+    if(!scrolling||document.visibilityState!=='visible')return;
+    pos+=SPEEDS[speedIdx][0];body.scrollTop=pos;
+    if(body.scrollTop+body.clientHeight>=body.scrollHeight-1){scrolling=false;updRd();}
+  },50);
+  pingLesson();pingTimer=setInterval(pingLesson,10000);
+}
+['touchstart','wheel','mousedown'].forEach(ev=>$('lrB').addEventListener(ev,()=>{scrolling=false;updRd();},{passive:true}));
+
+// --- Défis ---
+function renderChal(){
+  if(!S)return;const L=S.limit;
+  $('chSum').textContent='Limite du jour : '+L.limit+' trades (base '+L.base+' + '+L.bonus+' débloqués). Utilisés : '+L.used+'.';
+  $('chList').innerHTML=S.challenges.map(c=>'<div class="cd"><div class="tc"><b>'+esc(c.title)+'</b><span class="pill '+(c.done?'w':'o')+'">'+(c.done?'débloqué':'+'+c.reward+' trades/jour')+'</span></div><div class="k" style="margin:4px 0 6px">'+esc(c.desc)+'</div><div class="bar" style="margin:0"><div style="width:'+(100*c.progress/c.target)+'%"></div></div><div class="k" style="margin-top:4px">'+c.progress+' / '+c.target+'</div></div>').join('');
+}
+
+// --- Discussion ---
+let chatLast=0,chatTimer=null;
+function stopChat(){clearInterval(chatTimer);chatTimer=null;}
+function addMsg(m){
+  const d=document.createElement('div');d.className='cd';d.style.padding='8px 11px';d.style.marginBottom='6px';if(m.me)d.style.borderColor='var(--accent1)';
+  const h=document.createElement('div');h.className='tc';
+  const n=document.createElement('b');n.textContent=m.name||'Élève';n.style.fontSize='13px';
+  h.appendChild(n);
+  const r=document.createElement('span');r.className='k';
+  if(m.mentor){const p=document.createElement('span');p.className='pill o';p.textContent='mentor';r.appendChild(p);}
+  if(S&&S.is_admin){const x=document.createElement('button');x.textContent='✕';x.style.marginLeft='6px';x.style.padding='0 8px';x.onclick=async()=>{await api('/api/admin/chat/delete','POST',{id:m.id});d.remove();};r.appendChild(x);}
+  h.appendChild(r);
+  const t=document.createElement('div');t.textContent=m.text;t.style.whiteSpace='pre-wrap';t.style.marginTop='3px';
+  d.appendChild(h);d.appendChild(t);$('cMsgs').appendChild(d);
+}
+async function pollChat(){
+  const j=await api('/api/chat?after='+chatLast);if(!j)return;
+  const box=$('cMsgs');const atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-30||chatLast===0;
+  j.messages.forEach(m=>{chatLast=Math.max(chatLast,m.id);addMsg(m);});
+  if(j.messages.length&&atEnd)box.scrollTop=box.scrollHeight;
+}
+function startChat(){
+  stopChat();chatLast=0;$('cMsgs').innerHTML='';
+  if(!S||!S.validated){$('cNote').textContent='La discussion est réservée aux élèves validés par le mentor.';$('cBox').hidden=true;return;}
+  $('cNote').textContent='';$('cBox').hidden=false;pollChat();chatTimer=setInterval(pollChat,4000);
 }
 
 // --- Événements ---
 $('tT').onclick=()=>show(S&&S.running?'run':'home');
 $('tP').onclick=()=>show('prof');
+$('tL').onclick=()=>show('learn');
+$('tC').onclick=()=>show('chal');
+$('tD').onclick=()=>show('chat');
+$('lrBack').onclick=()=>loadLessons();
+$('lrPlay').onclick=()=>{scrolling=!scrolling;pos=$('lrB').scrollTop;updRd();};
+$('lrSpd').onclick=()=>{speedIdx=(speedIdx+1)%SPEEDS.length;updRd();};
+$('cSend').onclick=async()=>{const t=$('cIn').value.trim();if(!t)return;const j=await api('/api/chat','POST',{text:t});if(j){$('cIn').value='';pollChat();}};
+$('cIn').onkeydown=e=>{if(e.key==='Enter')$('cSend').click();};
+$('stSwitch').onclick=async()=>{if(S.settings.trading_enabled&&!confirm('Suspendre le trading pour tous les élèves ?'))return;await api('/api/admin/settings','POST',{trading_enabled:!S.settings.trading_enabled});await refresh();renderSettings();};
+$('stSave').onclick=async()=>{const j=await api('/api/admin/settings','POST',{open_min:strToMin($('stOpen').value),close_min:strToMin($('stClose').value),base_daily:parseInt($('stBase').value||'0',10),notice:$('stNotice').value});if(j){await refresh();renderSettings();}};
+$('lsAdd').onclick=async()=>{const j=await api('/api/admin/lesson','POST',{action:'add',title:$('lsTitle').value,body:$('lsBody').value});if(j){$('lsTitle').value='';$('lsBody').value='';loadAdminLessons();}};
 $('tAd').onclick=()=>show('admin');
 document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>show(b.dataset.b));
 $('mD').onclick=()=>act('/api/config',{mode:'demo'});
 $('mR').onclick=()=>act('/api/config',{mode:'real'});
 $('goA').onclick=()=>show('acct');
 $('goP').onclick=()=>{
+  if(S&&!S.validated){setErr('Ton accès au trading n\'est pas encore validé par le mentor.');return;}
+  if(S&&!S.gate.ok){setErr(S.gate.reason);return;}
   if(S&&!(S.conn.demo||S.conn.real)){setErr('Connecte d\'abord ton compte Pocket Option.');show('acct');return;}
   show('pairs');
 };

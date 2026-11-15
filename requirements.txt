@@ -1,3 +1,4 @@
 pocket-option
 python-telegram-bot
 aiohttp
+tzdata

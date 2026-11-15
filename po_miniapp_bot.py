@@ -11,6 +11,7 @@ from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 from po_live import POLive, POError, parse_ssid
+import community
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,8 +27,6 @@ TG_TOKEN = os.getenv("TG_TOKEN", "")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://xxx.up.railway.app")
 DB_PATH = os.getenv("DB_PATH", "imi.db")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
-ALLOWED_IDS = [int(x.strip()) for x in os.getenv("ALLOWED_IDS", "").split(",") if x.strip().isdigit()]
-MEMBER_IDS = set(ADMIN_IDS) | set(ALLOWED_IDS)
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
 
@@ -89,6 +88,7 @@ def init_db():
     c.execute("INSERT OR IGNORE INTO groups (name, max_base, max_total, max_k, real_allowed) VALUES ('Standard', 10.0, 12, 5, 1)")
     conn.commit()
     conn.close()
+    community.init(DB_PATH)
 
 USER_SESSIONS = {}
 
@@ -175,6 +175,9 @@ def verify_init_data(init_data: str) -> dict:
         return json.loads(parsed.get("user", "{}"))
     return {}
 
+def is_validated(s: dict) -> bool:
+    return bool(s["affiliate_verified"]) or s["uid"] in ADMIN_IDS
+
 def build_state_payload(s: dict) -> dict:
     uid = s["uid"]
     conn = sqlite3.connect(DB_PATH)
@@ -241,6 +244,11 @@ def build_state_payload(s: dict) -> dict:
         "running": s["running"], "paused": s["paused"], "pause_req": s["pause_req"], "stopped": s["stopped"],
         "placed": s["placed"], "next": s["next"], "net": s["net"], "trades": s["trades"], "err": s["err"],
         "lb": lb, "me": me, "min_trades": min_trades,
+        "validated": is_validated(s),
+        "settings": {**community.get_settings(DB_PATH), "open": community.fmt_min(community.get_settings(DB_PATH)["open_min"]), "close": community.fmt_min(community.get_settings(DB_PATH)["close_min"])},
+        "limit": community.daily_limit(DB_PATH, uid),
+        "gate": dict(zip(("ok", "reason"), community.trading_gate(DB_PATH, uid))),
+        "challenges": community.challenges(DB_PATH, uid)[0],
     }
 
 # --- SURVEILLANCE DU SSID & NOTIFICATIONS PROACTIVES ---
@@ -291,6 +299,11 @@ async def trading_loop(s: dict):
                 s["paused"] = True
                 s["pause_req"] = False
                 continue
+
+            ok, reason = community.trading_gate(DB_PATH, uid)
+            if not ok:
+                s["err"] = reason
+                break
 
             idx = s["placed"] + 1
             stake = round(s["next"], 2)
@@ -349,13 +362,11 @@ async def get_user_from_request(request: web.Request) -> dict:
     uid = tg_user.get("id")
     if not uid:
         raise web.HTTPUnauthorized(text=json.dumps({"error": "Ouvre l'application depuis Telegram."}), content_type="application/json")
-    if uid not in MEMBER_IDS:
-        raise web.HTTPForbidden(text=json.dumps({"error": "Accès réservé aux membres invités."}), content_type="application/json")
     name = f"{tg_user.get('first_name', 'Trader')} {tg_user.get('last_name', '')}".strip()
     username = tg_user.get("username", "")
     s = get_session(uid, name, username)
     if s["blocked"] and uid not in ADMIN_IDS:
-        raise web.HTTPForbidden(text=json.dumps({"error": "Not affiliate / Compte bloqué par l'administrateur."}), content_type="application/json")
+        raise web.HTTPForbidden(text=json.dumps({"error": "Accès bloqué par le mentor."}), content_type="application/json")
     return s
 
 async def handle_index(request: web.Request):
@@ -410,6 +421,8 @@ async def po_restore(s: dict) -> POLive:
 
 async def handle_connect(request: web.Request):
     s = await get_user_from_request(request)
+    if not is_validated(s):
+        return web.json_response({"error": "Ton accès au trading n'est pas encore validé par le mentor."}, status=403)
     data = await request.json()
     if not data.get("consent"):
         return web.json_response({"error": "Coche la case pour confirmer que tu as compris les risques."}, status=400)
@@ -457,8 +470,11 @@ async def handle_disconnect(request: web.Request):
 
 async def handle_start(request: web.Request):
     s = await get_user_from_request(request)
-    if not s["affiliate_verified"] and s["uid"] not in ADMIN_IDS:
-        return web.json_response({"error": "Not affiliate : votre ID n'est pas validé par l'administrateur."}, status=403)
+    if not is_validated(s):
+        return web.json_response({"error": "Ton accès au trading n'est pas encore validé par le mentor."}, status=403)
+    ok, reason = community.trading_gate(DB_PATH, s["uid"])
+    if not ok:
+        return web.json_response({"error": reason}, status=403)
     if s["running"]:
         return web.json_response({"error": "Une séance est déjà en cours."}, status=400)
     if not (s["conn"]["demo"] or s["conn"]["real"]):
@@ -572,12 +588,137 @@ async def handle_admin_group(request: web.Request):
     conn.close()
     return web.json_response({"ok": True})
 
+# --- COURS, DISCUSSION, RÉGLAGES MENTOR ---
+CHAT_LAST = {}
+
+def db_rows(sql, args=()):
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(sql, args).fetchall()
+    conn.close()
+    return rows
+
+def db_exec(sql, args=()):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute(sql, args)
+    conn.commit()
+    last = cur.lastrowid
+    conn.close()
+    return last
+
+async def handle_lessons(request: web.Request):
+    s = await get_user_from_request(request)
+    rows = db_rows("""SELECT l.id, l.title, l.body, l.ts, COALESCE(v.seconds, 0) FROM lessons l
+                      LEFT JOIN lesson_views v ON v.lesson_id = l.id AND v.uid = ?
+                      ORDER BY l.id ASC""", (s["uid"],))
+    out = []
+    for lid, title, body, ts, sec in rows:
+        req = community.lesson_required(body)
+        out.append({"id": lid, "title": title, "body": body, "ts": ts, "seconds": int(sec), "required": req, "read": sec >= req})
+    return web.json_response({"lessons": out})
+
+async def handle_lesson_ping(request: web.Request):
+    s = await get_user_from_request(request)
+    data = await request.json()
+    try:
+        lid = int(data.get("lesson_id"))
+    except (TypeError, ValueError):
+        return web.json_response({"error": "Leçon invalide."}, status=400)
+    if not db_rows("SELECT 1 FROM lessons WHERE id=?", (lid,)):
+        return web.json_response({"error": "Leçon introuvable."}, status=404)
+    now = time.time()
+    row = db_rows("SELECT seconds, last_seen FROM lesson_views WHERE uid=? AND lesson_id=?", (s["uid"], lid))
+    if row:
+        add = min(max(now - (row[0][1] or now), 0), 15)
+        db_exec("UPDATE lesson_views SET seconds=seconds+?, last_seen=? WHERE uid=? AND lesson_id=?", (add, now, s["uid"], lid))
+        seconds = row[0][0] + add
+    else:
+        db_exec("INSERT INTO lesson_views (uid, lesson_id, seconds, first_seen, last_seen) VALUES (?, ?, 0, ?, ?)", (s["uid"], lid, now, now))
+        seconds = 0
+    return web.json_response({"seconds": int(seconds)})
+
+async def handle_chat_get(request: web.Request):
+    s = await get_user_from_request(request)
+    if not is_validated(s):
+        return web.json_response({"error": "La discussion est réservée aux élèves validés."}, status=403)
+    try:
+        after = int(request.query.get("after", "0"))
+    except ValueError:
+        after = 0
+    rows = db_rows("SELECT id, uid, name, text, is_admin, ts FROM chat WHERE id>? ORDER BY id DESC LIMIT 100", (after,))
+    msgs = [{"id": r[0], "me": r[1] == s["uid"], "name": r[2], "text": r[3], "mentor": bool(r[4]), "ts": r[5]} for r in reversed(rows)]
+    return web.json_response({"messages": msgs})
+
+async def handle_chat_post(request: web.Request):
+    s = await get_user_from_request(request)
+    if not is_validated(s):
+        return web.json_response({"error": "La discussion est réservée aux élèves validés."}, status=403)
+    data = await request.json()
+    text = str(data.get("text", "")).strip()[:500]
+    if not text:
+        return web.json_response({"error": "Message vide."}, status=400)
+    now = time.time()
+    if now - CHAT_LAST.get(s["uid"], 0) < 3:
+        return web.json_response({"error": "Attends quelques secondes entre deux messages."}, status=429)
+    CHAT_LAST[s["uid"]] = now
+    db_exec("INSERT INTO chat (uid, name, text, is_admin, ts) VALUES (?, ?, ?, ?, ?)",
+            (s["uid"], s["name"], text, 1 if s["uid"] in ADMIN_IDS else 0, now))
+    return web.json_response({"ok": True})
+
+async def handle_admin_settings(request: web.Request):
+    await check_admin(request)
+    data = await request.json()
+    try:
+        community.set_settings(DB_PATH, data)
+    except (ValueError, TypeError) as e:
+        return web.json_response({"error": str(e) or "Valeur invalide."}, status=400)
+    return web.json_response({"ok": True})
+
+async def handle_admin_lesson(request: web.Request):
+    await check_admin(request)
+    data = await request.json()
+    action = data.get("action")
+    if action == "add":
+        title = str(data.get("title", "")).strip()[:120]
+        body = str(data.get("body", "")).strip()[:20000]
+        if not title or not body:
+            return web.json_response({"error": "Titre et texte requis."}, status=400)
+        db_exec("INSERT INTO lessons (title, body, ts) VALUES (?, ?, ?)", (title, body, time.time()))
+    elif action == "delete":
+        lid = int(data.get("id", 0))
+        db_exec("DELETE FROM lessons WHERE id=?", (lid,))
+        db_exec("DELETE FROM lesson_views WHERE lesson_id=?", (lid,))
+    else:
+        return web.json_response({"error": "Action inconnue."}, status=400)
+    return web.json_response({"ok": True})
+
+async def handle_admin_reading(request: web.Request):
+    await check_admin(request)
+    lessons = db_rows("SELECT id, body FROM lessons")
+    req = {lid: community.lesson_required(body) for lid, body in lessons}
+    views = {}
+    for uid, lid, sec, last in db_rows("SELECT uid, lesson_id, seconds, last_seen FROM lesson_views"):
+        if lid in req:
+            views.setdefault(uid, []).append((lid, sec, last))
+    out = []
+    for uid, name, username, blocked, aff in db_rows("SELECT uid, name, username, blocked, affiliate_verified FROM users"):
+        v = views.get(uid, [])
+        out.append({
+            "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or uid in ADMIN_IDS,
+            "seen": len(v), "read": sum(1 for lid, sec, _ in v if sec >= req[lid]), "total": len(req),
+            "seconds": int(sum(sec for _, sec, _ in v)), "last_seen": max([x[2] or 0 for x in v], default=0),
+        })
+    out.sort(key=lambda r: (-r["seconds"], r["name"] or ""))
+    return web.json_response({"readers": out, "settings": {**community.get_settings(DB_PATH)}})
+
+async def handle_admin_chat_delete(request: web.Request):
+    await check_admin(request)
+    data = await request.json()
+    db_exec("DELETE FROM chat WHERE id=?", (int(data.get("id", 0)),))
+    return web.json_response({"ok": True})
+
 # --- BOT TELEGRAM ---
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    if user.id not in MEMBER_IDS:
-        await update.message.reply_text("Ce bot est privé, réservé aux membres invités.")
-        return
     get_session(user.id, user.first_name or "Trader", user.username or "")
     kb = InlineKeyboardMarkup([[InlineKeyboardButton("Ouvrir iMi BMAX", web_app=WebAppInfo(url=WEBAPP_URL))]])
     await update.message.reply_text(
@@ -598,6 +739,14 @@ def make_web_app() -> web.Application:
     app.router.add_get("/api/admin/users", handle_admin_users)
     app.router.add_post("/api/admin/user", handle_admin_user_action)
     app.router.add_post("/api/admin/group", handle_admin_group)
+    app.router.add_get("/api/lessons", handle_lessons)
+    app.router.add_post("/api/lesson/ping", handle_lesson_ping)
+    app.router.add_get("/api/chat", handle_chat_get)
+    app.router.add_post("/api/chat", handle_chat_post)
+    app.router.add_post("/api/admin/settings", handle_admin_settings)
+    app.router.add_post("/api/admin/lesson", handle_admin_lesson)
+    app.router.add_get("/api/admin/reading", handle_admin_reading)
+    app.router.add_post("/api/admin/chat/delete", handle_admin_chat_delete)
     return app
 
 async def main():
