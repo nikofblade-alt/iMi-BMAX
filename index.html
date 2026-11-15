@@ -119,11 +119,9 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div class="cd"><p class="k" id="aS" style="margin:0 0 8px"></p>
 <div class="k" style="margin-bottom:6px">1. Crée ton compte via notre lien de parrainage officiel :</div>
 <a class="lnk poL" target="_blank" rel="noopener noreferrer" style="margin-bottom:10px"><span><b>Créer mon compte Pocket Option</b><br><span class="k">Lien de parrainage requis pour l'affiliation</span></span>↗</a>
-<div class="k" style="margin-bottom:6px">2. Connecte-toi automatiquement (ton email et mot de passe sont utilisés uniquement à l'instant T pour récupérer ton SSID/UID puis immédiatement oubliés par le robot) :</div>
+<div class="k" style="margin-bottom:6px">2. Colle ta session Pocket Option. Dans ton navigateur : outils de développement, onglet Réseau, filtre WebSocket, puis copie le message qui commence par <b>42["auth"</b>. Il correspond au compte (démo ou réel) sur lequel tu es connecté. Aucun mot de passe n'est demandé.</div>
 <div id="connForm">
-<div class="k" style="margin:8px 0 4px">Email Pocket Option</div><input id="poEmail" type="email" autocomplete="off" placeholder="exemple@gmail.com">
-<div class="k" style="margin:8px 0 4px">Mot de passe Pocket Option</div><input id="poPass" type="password" autocomplete="off" placeholder="••••••••">
-<div class="k" style="margin:8px 0 4px">Ton ID Pocket Option (pour vérification d'affiliation par l'admin)</div><input id="poAffId" inputmode="numeric" autocomplete="off" placeholder="Ex: 12345678">
+<textarea id="poSsid" rows="4" autocomplete="off" spellcheck="false" placeholder='42["auth",{"session":"...","isDemo":1,"uid":123,"platform":2}]' style="width:100%;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:12px/1.4 ui-monospace,monospace"></textarea>
 </div>
 <button class="btn" id="cn" style="margin:10px 0 0"></button></div>
 <p class="k" style="margin:0">Le robot iMi BMAX surveille ton SSID/UID et te notifiera avant son expiration pour renouveler ta session sans devoir retaper tes identifiants.</p></div>
@@ -312,7 +310,7 @@ function renderRun(){
   const now=Date.now()/1000;
   $('cards').innerHTML=S.trades.slice().reverse().map(t=>{
     const open=t.st==='open';const left=open?Math.max(0,Math.ceil(t.end-now)):0;
-    return '<div class="cd"><div class="tc"><span>Trade '+t.i+' · $'+f2(t.stake)+'</span><span class="pill '+(t.st==='win'?'w':t.st==='loss'?'l':'o')+'">'+(open?'ouvert '+left+'s':t.st==='win'?'gagné '+sg(t.pnl):'perdu '+sg(t.pnl))+'</span></div></div>';
+    return '<div class="cd"><div class="tc"><span>Trade '+t.i+' · $'+f2(t.stake)+'</span><span class="pill '+(t.st==='win'?'w':t.st==='loss'?'l':'o')+'">'+(open?'ouvert '+left+'s':t.st==='win'?'gagné '+sg(t.pnl):t.st==='draw'?'égalité':'perdu '+sg(t.pnl))+'</span></div></div>';
   }).join('');
 }
 function showResult(){
@@ -382,8 +380,10 @@ $('again').onclick=()=>show('pairs');
 $('menu').onclick=()=>show('home');
 $('cn').onclick=async()=>{
   if(S.conn.demo||S.conn.real){await act('/api/disconnect');return;}
-  const j=await act('/api/connect',{email:$('poEmail').value,password:$('poPass').value,aff_id:$('poAffId').value});
-  if(j){$('poPass').value='';$('poEmail').value='';}
+  $('cn').disabled=true;$('cn').textContent='Connexion…';
+  const j=await act('/api/connect',{ssid:$('poSsid').value});
+  $('cn').disabled=false;render();
+  if(j)$('poSsid').value='';
 };
 $('showPhoto').onchange=e=>act('/api/config',{show_photo:e.target.checked}).then(()=>renderProf());
 $('lD').onclick=()=>{lbMode='demo';renderProf();};
