@@ -189,6 +189,11 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 
 <div id="prof" hidden><div class="cd"><div class="k">Profil Telegram</div><div class="v" id="pN"></div><div class="k">Alias affiché dans le classement : <b id="pA"></b></div>
 <label class="tc" style="margin-top:8px;cursor:pointer"><span class="k">Afficher ma photo dans le classement</span><input id="showPhoto" type="checkbox" style="width:auto;height:auto"></label></div>
+<div class="lb">Parrainage</div>
+<div class="cd"><div class="k" id="rfInfo"></div><input id="rfLink" readonly style="margin-top:6px"><button class="btn" id="rfCopy" style="margin:6px 0 0">Copier mon lien</button>
+<div class="k" id="rfStat" style="margin-top:8px"></div>
+<div class="tc" style="margin-top:6px"><span class="k">Énergies : <b id="rfEn">0</b> · 1 énergie = 1 trade en plus</span></div>
+<div class="g2" style="margin-top:6px"><input id="rfX" inputmode="numeric" placeholder="Nombre d'énergies"><button class="btn" id="rfBtn" style="margin:0">Échanger</button></div></div>
 <div class="lb">Mes soldes Pocket Option</div>
 <div class="cd"><div class="tc"><span class="k">Solde démo</span><b id="pBd"></b></div><div id="sD"></div></div>
 <div class="cd"><div class="tc"><span class="k">Solde réel</span><b id="pBr"></b></div><div id="sR"></div><div class="k" id="pRn" style="margin-top:4px"></div></div>
@@ -203,6 +208,7 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div class="cd"><button class="btn" id="stSwitch"></button>
 <div class="g2"><div><div class="k" style="margin-bottom:4px">Ouverture (heure de Goma)</div><input id="stOpen" type="time"></div><div><div class="k" style="margin-bottom:4px">Fermeture</div><input id="stClose" type="time"></div></div>
 <div class="k" style="margin:8px 0 4px">Trades par jour pour chaque élève (avant défis)</div><input id="stBase" inputmode="numeric">
+<div class="k" style="margin:8px 0 4px">Trades par jour pour les membres élite (sans défis)</div><input id="stElite" inputmode="numeric">
 <div class="k" style="margin:8px 0 4px">Message affiché si le trading est suspendu (facultatif)</div><input id="stNotice" maxlength="300">
 <p class="k" style="margin:6px 0">Ouverture et fermeture identiques : toujours ouvert. Un trade déjà ouvert va jusqu'à son terme.</p>
 <button class="btn" id="stSave" style="margin:0">Enregistrer</button></div>
@@ -210,7 +216,7 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div class="cd"><input id="lsTitle" placeholder="Titre de la leçon" maxlength="120">
 <textarea id="lsBody" rows="6" placeholder="Texte de la leçon" style="width:100%;margin-top:6px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:inherit"></textarea>
 <button class="btn" id="lsAdd" style="margin:8px 0 0">Publier</button><div id="lsList" style="margin-top:8px"></div></div>
-<div class="lb">Suivi de lecture</div><div id="rdList"></div>
+<div class="lb">Suivi de lecture et membres élite</div><div class="k" id="rdElite" style="margin-bottom:6px"></div><div id="rdList"></div>
 <div class="lb">Tous les inscrits</div>
 <div id="ulist"></div>
 <div class="lb">Groupes</div>
@@ -298,10 +304,10 @@ function spark(arr){
 
 function render(){
   if(!S)return;
-  $('tAd').hidden=!S.is_admin;$('tD').hidden=!S.validated;
+  $('tAd').hidden=!S.is_admin;$('tD').hidden=!S.validated;$('tC').hidden=!!S.elite;
   const gateMsg=!S.validated?'Ton accès au trading attend la validation du mentor. En attendant, lis les cours et relève les défis.':(S.gate.ok?'':S.gate.reason);
   $('hGate').textContent=gateMsg;$('hGate').hidden=!gateMsg;
-  $('hLim').textContent="Trades aujourd'hui : "+S.limit.used+'/'+S.limit.limit+' (base '+S.limit.base+' + '+S.limit.bonus+' débloqués par les défis)';
+  $('hLim').textContent="Trades aujourd'hui : "+S.limit.used+'/'+S.limit.limit+(S.elite?' (membre élite, limite fixe)':' (base '+S.limit.base+' + '+S.limit.bonus+' débloqués par les défis)')+(S.limit.credits?' · +'+S.limit.credits+' trades gagnés par parrainage':'');
   document.querySelectorAll('.poL').forEach(a=>a.href=REF);
   document.querySelectorAll('.poT').forEach(a=>a.textContent='Ouvrir Pocket Option');
   $('hBd').textContent=bal(S.bal.demo);$('hBr').textContent=bal(S.bal.real);
@@ -378,6 +384,11 @@ function renderProf(){
   $('pN').textContent=S.name;$('pA').textContent=S.alias;$('showPhoto').checked=!!S.show_photo;
   $('pBd').textContent=bal(S.bal.demo);$('pBr').textContent=bal(S.bal.real);
   $('sD').innerHTML=spark(S.hist.demo);$('sR').innerHTML=spark(S.hist.real);
+  const R=S.ref||{};
+  $('rfInfo').textContent='Invite un ami avec ton lien. Quand le mentor le valide, tu reçois '+(R.per_referral||5)+' énergies, échangeables contre des trades en plus.';
+  $('rfLink').value=R.link||'(lien indisponible)';$('rfCopy').hidden=!R.link;
+  $('rfStat').textContent=(R.referred||0)+' invité(s) · '+(R.validated||0)+' validé(s) par le mentor';
+  $('rfEn').textContent=R.energy||0;
   $('pRn').textContent=S.real_ok?'':'Mode réel verrouillé pour ce compte.';
   $('lD').classList.toggle('sel',lbMode==='demo');$('lR').classList.toggle('sel',lbMode==='real');
   const rows=S.lb[lbMode];
@@ -413,7 +424,7 @@ function renderSettings(){
   if(!S)return;const st=S.settings;
   $('stSwitch').textContent=st.trading_enabled?'Trading ouvert : appuie pour TOUT SUSPENDRE':'Trading SUSPENDU : appuie pour rouvrir';
   $('stSwitch').className='btn'+(st.trading_enabled?' st':'');
-  $('stOpen').value=st.open;$('stClose').value=st.close;$('stBase').value=st.base_daily;$('stNotice').value=st.notice||'';
+  $('stOpen').value=st.open;$('stClose').value=st.close;$('stBase').value=st.base_daily;$('stElite').value=st.elite_daily;$('stNotice').value=st.notice||'';
 }
 async function loadAdminLessons(){
   const j=await api('/api/lessons');if(!j)return;
@@ -428,10 +439,11 @@ async function loadAdminLessons(){
 }
 async function loadReaders(){
   const j=await api('/api/admin/reading');if(!j)return;
+  $('rdElite').textContent='Membres élite : '+j.elite_count+'/'+j.elite_max+' (limite fixe, pas de défis).';
   const box=$('rdList');box.innerHTML='';
   if(!j.readers.length){box.innerHTML='<div class="k">Aucun inscrit pour le moment.</div>';return;}
   j.readers.forEach(u=>{
-    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr) auto auto';
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr) auto auto auto';
     const info=document.createElement('div');
     const nm=document.createElement('b');nm.textContent=u.name||u.uid;
     const st=document.createElement('div');st.className='k';
@@ -441,7 +453,9 @@ async function loadReaders(){
     bV.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.validated});loadReaders();};
     const bB=document.createElement('button');bB.className='ch';bB.style.height='34px';bB.textContent=u.blocked?'Débloquer':'Bloquer';
     bB.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadReaders();};
-    d.appendChild(info);d.appendChild(bV);d.appendChild(bB);box.appendChild(d);
+    const bE=document.createElement('button');bE.className='ch'+(u.elite?' sel':'');bE.style.height='34px';bE.textContent=u.elite?'Élite ✓':'Élite';
+    bE.onclick=async()=>{const r=await api('/api/admin/user','POST',{uid:u.uid,action:'elite',value:!u.elite});if(r)loadReaders();};
+    d.appendChild(info);d.appendChild(bV);d.appendChild(bE);d.appendChild(bB);box.appendChild(d);
   });
 }
 
@@ -529,7 +543,9 @@ $('lrSpd').onclick=()=>{speedIdx=(speedIdx+1)%SPEEDS.length;updRd();};
 $('cSend').onclick=async()=>{const t=$('cIn').value.trim();if(!t)return;const j=await api('/api/chat','POST',{text:t});if(j){$('cIn').value='';pollChat();}};
 $('cIn').onkeydown=e=>{if(e.key==='Enter')$('cSend').click();};
 $('stSwitch').onclick=async()=>{if(S.settings.trading_enabled&&!confirm('Suspendre le trading pour tous les élèves ?'))return;await api('/api/admin/settings','POST',{trading_enabled:!S.settings.trading_enabled});await refresh();renderSettings();};
-$('stSave').onclick=async()=>{const j=await api('/api/admin/settings','POST',{open_min:strToMin($('stOpen').value),close_min:strToMin($('stClose').value),base_daily:parseInt($('stBase').value||'0',10),notice:$('stNotice').value});if(j){await refresh();renderSettings();}};
+$('rfCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('rfLink').value);setErr('Lien copié.');}catch(e){$('rfLink').select();}};
+$('rfBtn').onclick=async()=>{const n=parseInt($('rfX').value||'0',10);if(!(n>0))return;const j=await api('/api/energy/exchange','POST',{amount:n});if(j){$('rfX').value='';await refresh();renderProf();}};
+$('stSave').onclick=async()=>{const j=await api('/api/admin/settings','POST',{open_min:strToMin($('stOpen').value),close_min:strToMin($('stClose').value),base_daily:parseInt($('stBase').value||'0',10),elite_daily:parseInt($('stElite').value||'0',10),notice:$('stNotice').value});if(j){await refresh();renderSettings();}};
 $('lsAdd').onclick=async()=>{const j=await api('/api/admin/lesson','POST',{action:'add',title:$('lsTitle').value,body:$('lsBody').value});if(j){$('lsTitle').value='';$('lsBody').value='';loadAdminLessons();}};
 $('tAd').onclick=()=>show('admin');
 document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>show(b.dataset.b));
