@@ -190,6 +190,7 @@ input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--bo
 <div id="prof" hidden><div class="cd"><div class="k">Profil Telegram</div><div class="v" id="pN"></div><div class="k">Alias affiché dans le classement : <b id="pA"></b></div>
 <label class="tc" style="margin-top:8px;cursor:pointer"><span class="k">Afficher ma photo dans le classement</span><input id="showPhoto" type="checkbox" style="width:auto;height:auto"></label></div>
 <div class="cd" id="vwBox" hidden><div class="k" id="vwInfo"></div><button class="btn" id="vwBtn" style="margin:6px 0 0"></button></div>
+<div class="lb">Mon niveau</div><div class="cd"><div class="k" id="pLv"></div></div>
 <div class="lb">Parrainage</div>
 <div class="cd"><div class="k" id="rfInfo"></div><input id="rfLink" readonly style="margin-top:6px"><button class="btn" id="rfCopy" style="margin:6px 0 0">Copier mon lien</button>
 <div class="k" id="rfStat" style="margin-top:8px"></div>
@@ -239,12 +240,22 @@ const HERO_THEMES = [
   { name: "⚔️ Wasabi (Plasma Laser)", bg: "#04120c", a1: "#10b981", a2: "#06b6d4", glow: "rgba(16,185,129,.35)" },
   { name: "🔥 Fredzilla (Kaiju Fire)", bg: "#070c18", a1: "#2563eb", a2: "#f97316", glow: "rgba(37,99,235,.38)" }
 ];
+// Niveaux : à partir de Bronze, les couleurs de l'app suivent le niveau de l'élève (le calcul du score reste secret côté serveur).
+const LEVEL_THEMES = [
+  null,
+  { name: "Niveau Bronze", bg: "#150c05", a1: "#cd7f32", a2: "#8c5a2b", glow: "rgba(205,127,50,.38)" },
+  { name: "Niveau Argent", bg: "#0b0f16", a1: "#cbd5e1", a2: "#64748b", glow: "rgba(203,213,225,.30)" },
+  { name: "Niveau Or", bg: "#161104", a1: "#facc15", a2: "#f59e0b", glow: "rgba(250,204,21,.38)" },
+  { name: "Niveau Diamant", bg: "#04111b", a1: "#22d3ee", a2: "#a78bfa", glow: "rgba(34,211,238,.40)" }
+];
+const LEVEL_NAMES = ["Débutant","Bronze","Argent","Or","Diamant"];
+let userLevel = 0;
 let themeOffset = 0;
 function applyHeroTheme() {
   const hour = new Date().getHours();
   // Change automatiquement toutes les 4 heures selon les 6 héros du dessin animé (ou au clic sur le badge)
   const idx = (Math.floor(hour / 4) + themeOffset) % HERO_THEMES.length;
-  const t = HERO_THEMES[idx];
+  const t = (userLevel > 0 && LEVEL_THEMES[userLevel]) || HERO_THEMES[idx];
   const r = document.documentElement.style;
   r.setProperty('--bg', t.bg);
   r.setProperty('--accent1', t.a1);
@@ -255,7 +266,7 @@ function applyHeroTheme() {
 }
 applyHeroTheme();
 setInterval(applyHeroTheme, 60000);
-document.getElementById('heroActorBadge').onclick = () => { themeOffset++; applyHeroTheme(); };
+document.getElementById('heroActorBadge').onclick = () => { if (userLevel === 0) { themeOffset++; applyHeroTheme(); } };
 
 const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();}
 const REF='https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND';
@@ -306,6 +317,7 @@ function spark(arr){
 
 function render(){
   if(!S)return;
+  const lvl=(S.level&&S.level.n)||0;if(lvl!==userLevel){userLevel=lvl;applyHeroTheme();}
   $('tAd').hidden=!S.is_admin||S.user_view;$('tD').hidden=!S.validated;$('tC').hidden=!!S.elite;
   const gateMsg=!S.validated?'Ton accès au trading attend la validation du mentor. En attendant, lis les cours et relève les défis.':(S.gate.ok?'':S.gate.reason);
   $('hGate').textContent=gateMsg;$('hGate').hidden=!gateMsg;
@@ -389,6 +401,7 @@ function renderProf(){
   $('vwBox').hidden=!S.is_admin;
   $('vwInfo').textContent=S.user_view?'Mode utilisateur : tu vois l\'app comme un élève (limite du jour, défis).':'Mode mentor : tu as la limite élite et le panneau Admin.';
   $('vwBtn').textContent=S.user_view?'Revenir en mode mentor':'Passer en mode utilisateur';
+  $('pLv').textContent=LEVEL_NAMES[userLevel]+(userLevel>0?' : les couleurs de l\'app suivent ton niveau.':' : progresse (cours, défis, discussion, entraînement en démo) pour débloquer des couleurs.');
   const R=S.ref||{};
   $('rfInfo').textContent='Invite un ami avec ton lien. Quand le mentor le valide, tu reçois '+(R.per_referral||5)+' énergies, échangeables contre des trades en plus.';
   $('rfLink').value=R.link||'(lien indisponible)';$('rfCopy').hidden=!R.link;
@@ -402,8 +415,9 @@ function renderProf(){
   if(!rows.some(r=>r.me))h+='<div class="k" style="margin:6px 0 2px">Ta position ('+me.t+'/'+S.min_trades+' trades pour être classé)</div>'+lrow(me);
   $('lbl').innerHTML=h||'<div class="k">Aucun utilisateur classé pour le moment.</div>';
 }
+function lvBadge(n){n=n||0;if(n<1)return '';const t=LEVEL_THEMES[n];return '<span title="'+LEVEL_NAMES[n]+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;background:linear-gradient(135deg,'+t.a1+','+t.a2+');box-shadow:0 0 6px '+t.glow+'"></span>';}
 function lrow(r){
-  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(/^https:\/\//.test(r.photo||'')?'<img class="av" src="'+esc(r.photo)+'">':'<span></span>')+'<span>'+esc(r.a)+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
+  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(/^https:\/\//.test(r.photo||'')?'<img class="av" src="'+esc(r.photo)+'">':'<span></span>')+'<span>'+lvBadge(r.lv)+esc(r.a)+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
 }
 
 async function loadAdmin(){
@@ -481,7 +495,9 @@ async function loadReaders(){
     const bE=document.createElement('button');bE.className='ch'+(u.elite?' sel':'');bE.style.height='34px';bE.textContent=u.elite?'Élite ✓':'Élite';
     bE.onclick=async()=>{const r=await api('/api/admin/user','POST',{uid:u.uid,action:'elite',value:!u.elite});if(r)loadReaders();};
     const bx=document.createElement('div');bx.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:6px';
-    bx.appendChild(bV);bx.appendChild(bE);bx.appendChild(bB);
+    const bL=document.createElement('button');bL.className='ch';bL.style.height='34px';bL.textContent='Niveau '+LEVEL_NAMES[u.level]+' · score '+u.score;
+    bL.onclick=async()=>{const v=prompt('Score secret de '+(u.name||u.uid)+' : '+u.score+' (niveau calculé : '+LEVEL_NAMES[u.level_computed]+').\nDébloquer un niveau pour cette personne : 0 Débutant, 1 Bronze, 2 Argent, 3 Or, 4 Diamant. 0 retire le déblocage.',String(u.level_unlock));if(v===null)return;const r=await api('/api/admin/user','POST',{uid:u.uid,action:'level',value:parseInt(v,10)});if(r)loadReaders();};
+    bx.appendChild(bV);bx.appendChild(bE);bx.appendChild(bL);bx.appendChild(bB);
     if(S.is_owner&&!u.owner){const bA=document.createElement('button');bA.className='ch'+(u.sub_admin?' sel':'');bA.style.height='34px';bA.textContent=u.sub_admin?'Admin ✓':'Admin';
       bA.onclick=async()=>{if(!u.sub_admin&&!confirm('Donner l\'accès admin à '+(u.name||u.uid)+' ?'))return;const r=await api('/api/admin/user','POST',{uid:u.uid,action:'subadmin',value:!u.sub_admin});if(r){loadReaders();loadTeam();}};
       bx.appendChild(bA);}

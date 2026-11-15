@@ -1,5 +1,6 @@
 """Settings, daily limits, trading hours, lessons and challenges (stored in the same SQLite file)."""
 import sqlite3
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -20,7 +21,7 @@ def init(db):
     c.execute("CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, name TEXT, text TEXT, is_admin INTEGER DEFAULT 0, ts REAL)")
     cols = {r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()}
     for name, ddl in (("elite", "INTEGER DEFAULT 0"), ("referred_by", "INTEGER"), ("ref_rewarded", "INTEGER DEFAULT 0"),
-                      ("energy", "INTEGER DEFAULT 0"), ("credits", "INTEGER DEFAULT 0"), ("sub_admin", "INTEGER DEFAULT 0")):
+                      ("energy", "INTEGER DEFAULT 0"), ("credits", "INTEGER DEFAULT 0"), ("sub_admin", "INTEGER DEFAULT 0"), ("level_unlock", "INTEGER DEFAULT 0")):
         if name not in cols:
             c.execute("ALTER TABLE users ADD COLUMN %s %s" % (name, ddl))
     conn.commit()
@@ -291,3 +292,62 @@ def team_report(db):
                     "challenges_done": sum(1 for x in ch if x["done"]), "challenges_total": len(ch)})
     conn.close()
     return out
+
+
+# --- Niveaux (la formule du score reste côté serveur : seul le mentor voit les scores) ---
+LEVELS = [(0, "Débutant"), (1, "Bronze"), (2, "Argent"), (3, "Or"), (4, "Diamant")]
+LEVEL_THRESHOLDS = [0, 15, 35, 60, 90]
+_lv_cache = {"t": 0.0, "v": {}}
+
+
+def level_name(n: int) -> str:
+    return LEVELS[max(0, min(4, n))][1]
+
+
+def _compute_levels(db) -> dict:
+    """Score based on learning and discipline, never on profit or real-money volume.
+    lessons read x6 + messages (max 30) x0.5 + demo trades (max 100) x0.3 + validated referrals x10 + 10 for >=50% wins over 20 demo trades."""
+    conn = sqlite3.connect(db)
+    users = conn.execute("SELECT uid, level_unlock FROM users").fetchall()
+    bodies = {i: b for i, b in conn.execute("SELECT id, body FROM lessons").fetchall()}
+    read = {}
+    for uid, lid, sec in conn.execute("SELECT uid, lesson_id, seconds FROM lesson_views").fetchall():
+        if lid in bodies and sec >= lesson_required(bodies[lid]):
+            read[uid] = read.get(uid, 0) + 1
+    chat = dict(conn.execute("SELECT uid, COUNT(*) FROM chat GROUP BY uid").fetchall())
+    demo = {u: (n or 0, w or 0, l or 0) for u, n, w, l in conn.execute(
+        "SELECT uid, COUNT(*), SUM(CASE WHEN st='win' THEN 1 ELSE 0 END), SUM(CASE WHEN st='loss' THEN 1 ELSE 0 END) FROM trades WHERE mode='demo' AND st IN ('win','loss','draw') GROUP BY uid").fetchall()}
+    refs = dict(conn.execute("SELECT referred_by, COUNT(*) FROM users WHERE referred_by IS NOT NULL AND ref_rewarded=1 GROUP BY referred_by").fetchall())
+    conn.close()
+    out = {}
+    for uid, unlock in users:
+        n, w, l = demo.get(uid, (0, 0, 0))
+        score = read.get(uid, 0) * 6 + min(chat.get(uid, 0), 30) * 0.5 + min(n, 100) * 0.3 + refs.get(uid, 0) * 10
+        if w + l >= 20 and w / (w + l) >= 0.5:
+            score += 10
+        computed = max(i for i, t in enumerate(LEVEL_THRESHOLDS) if score >= t)
+        unlock = unlock or 0
+        out[uid] = {"score": round(score, 1), "computed": computed, "unlock": unlock, "level": max(computed, unlock)}
+    return out
+
+
+def levels(db) -> dict:
+    now = time.time()
+    if now - _lv_cache["t"] > 15:
+        _lv_cache["v"] = _compute_levels(db)
+        _lv_cache["t"] = now
+    return _lv_cache["v"]
+
+
+def level_of(db, uid: int) -> int:
+    return levels(db).get(uid, {"level": 0})["level"]
+
+
+def set_level_unlock(db, uid: int, n: int):
+    if not 0 <= n <= 4:
+        raise ValueError("Niveau invalide (0 à 4).")
+    conn = sqlite3.connect(db)
+    conn.execute("UPDATE users SET level_unlock=? WHERE uid=?", (n, uid))
+    conn.commit()
+    conn.close()
+    _lv_cache["t"] = 0.0

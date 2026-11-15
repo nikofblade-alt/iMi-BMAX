@@ -209,6 +209,7 @@ def build_state_payload(s: dict) -> dict:
         elif st == "loss": pstats[pair]["l"] += cnt
         pstats[pair]["n"] += (sum_pnl or 0.0)
 
+    lvls = community.levels(DB_PATH)
     min_trades = 10
     lb = {"demo": [], "real": []}
     me = {"demo": {"rank": None, "t": 0, "r": 0.0, "p": 0.0, "a": mask_alias(s["name"], uid)},
@@ -229,7 +230,7 @@ def build_state_payload(s: dict) -> dict:
         for r_uid, r_name, r_show, r_photo, wins, total, profit in c.fetchall():
             total = total or 0; wins = wins or 0
             rate = (100.0 * wins / total) if total > 0 else 0.0
-            entry = {"a": mask_alias(r_name, r_uid), "t": total, "r": rate, "p": profit, "photo": r_photo if r_show else "", "me": (r_uid == uid)}
+            entry = {"a": mask_alias(r_name, r_uid), "lv": lvls.get(r_uid, {}).get("level", 0), "t": total, "r": rate, "p": profit, "photo": r_photo if r_show else "", "me": (r_uid == uid)}
             if total >= min_trades:
                 entry["rank"] = rank
                 lb[m].append(entry)
@@ -254,6 +255,7 @@ def build_state_payload(s: dict) -> dict:
         "running": s["running"], "paused": s["paused"], "pause_req": s["pause_req"], "stopped": s["stopped"],
         "placed": s["placed"], "next": s["next"], "net": s["net"], "trades": s["trades"], "err": s["err"],
         "lb": lb, "me": me, "min_trades": min_trades,
+        "level": {"n": lvls.get(uid, {}).get("level", 0), "name": community.level_name(lvls.get(uid, {}).get("level", 0))},
         "validated": is_validated(s),
         "settings": {**community.get_settings(DB_PATH), "open": community.fmt_min(community.get_settings(DB_PATH)["open_min"]), "close": community.fmt_min(community.get_settings(DB_PATH)["close_min"])},
         "limit": community.daily_limit(DB_PATH, uid, None, admin_limits(uid)),
@@ -557,7 +559,7 @@ async def handle_admin_user_action(request: web.Request):
     except (TypeError, ValueError):
         return web.json_response({"error": "uid invalide."}, status=400)
     action = data.get("action", "")
-    if action in ("block", "affiliate", "elite", "group") and is_admin(uid) and actor["uid"] not in ADMIN_IDS:
+    if action in ("block", "affiliate", "elite", "group", "level") and is_admin(uid) and actor["uid"] not in ADMIN_IDS:
         return web.json_response({"error": "Seul le propriétaire peut modifier un admin."}, status=403)
     value = data.get("value")
 
@@ -591,6 +593,13 @@ async def handle_admin_user_action(request: web.Request):
             if sess: sess["affiliate_verified"] = True
         else:
             USER_VIEW.discard(uid)
+        return web.json_response({"ok": True})
+    elif action == "level":
+        conn.close()
+        try:
+            community.set_level_unlock(DB_PATH, uid, int(value))
+        except (TypeError, ValueError) as e:
+            return web.json_response({"error": str(e) or "Niveau invalide (0 à 4)."}, status=400)
         return web.json_response({"ok": True})
     elif action == "reward":
         conn.close()
@@ -760,10 +769,12 @@ async def handle_admin_reading(request: web.Request):
         if lid in req:
             views.setdefault(uid, []).append((lid, sec, last))
     out = []
+    lvls = community.levels(DB_PATH)
     for uid, name, username, blocked, aff, elite, sub in db_rows("SELECT uid, name, username, blocked, affiliate_verified, elite, sub_admin FROM users"):
         v = views.get(uid, [])
         out.append({
             "uid": uid, "name": name, "username": username, "blocked": bool(blocked), "validated": bool(aff) or is_admin(uid), "elite": bool(elite), "sub_admin": bool(sub), "owner": uid in ADMIN_IDS,
+            "score": lvls.get(uid, {}).get("score", 0), "level": lvls.get(uid, {}).get("level", 0), "level_computed": lvls.get(uid, {}).get("computed", 0), "level_unlock": lvls.get(uid, {}).get("unlock", 0),
             "seen": len(v), "read": sum(1 for lid, sec, _ in v if sec >= req[lid]), "total": len(req),
             "seconds": int(sum(sec for _, sec, _ in v)), "last_seen": max([x[2] or 0 for x in v], default=0),
         })
