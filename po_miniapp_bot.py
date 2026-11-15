@@ -30,6 +30,11 @@ ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 PO_REAL_REGION = os.getenv("PO_REAL_REGION", "")
 PORT = int(os.getenv("PORT", "8080"))
 BOT_USERNAME = ""
+USER_VIEW = set()  # admins currently previewing the app as a plain student
+
+def admin_limits(uid):
+    """True when uid gets the admin/élite limits (an admin not in student view)."""
+    return uid in ADMIN_IDS and uid not in USER_VIEW
 
 REF_LINK = "https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND"
 
@@ -238,7 +243,7 @@ def build_state_payload(s: dict) -> dict:
 
     return {
         "uid": uid, "name": s["name"], "alias": mask_alias(s["name"], uid), "show_photo": s["show_photo"],
-        "is_admin": uid in ADMIN_IDS, "affiliate_verified": s["affiliate_verified"], "po_aff_id": s["po_aff_id"],
+        "is_admin": uid in ADMIN_IDS, "user_view": uid in USER_VIEW, "affiliate_verified": s["affiliate_verified"], "po_aff_id": s["po_aff_id"],
         "mode": s["mode"], "real_ok": real_ok, "conn": s["conn"], "bal": s["bal"], "hist": s["hist"], "tr": tr,
         "pairs": DEFAULT_PAIRS, "pstats": pstats, "p": s["p"], "dir": s["dir"], "base": s["base"],
         "dur": s["dur"], "total": s["total"], "k": s["k"], "max_loss": max_loss, "pause_lot": s["pause_lot"],
@@ -247,10 +252,10 @@ def build_state_payload(s: dict) -> dict:
         "lb": lb, "me": me, "min_trades": min_trades,
         "validated": is_validated(s),
         "settings": {**community.get_settings(DB_PATH), "open": community.fmt_min(community.get_settings(DB_PATH)["open_min"]), "close": community.fmt_min(community.get_settings(DB_PATH)["close_min"])},
-        "limit": community.daily_limit(DB_PATH, uid, None, uid in ADMIN_IDS),
-        "elite": community.daily_limit(DB_PATH, uid, None, uid in ADMIN_IDS)["elite"],
+        "limit": community.daily_limit(DB_PATH, uid, None, admin_limits(uid)),
+        "elite": community.daily_limit(DB_PATH, uid, None, admin_limits(uid))["elite"],
         "ref": community.referral_info(DB_PATH, uid, BOT_USERNAME),
-        "gate": dict(zip(("ok", "reason"), community.trading_gate(DB_PATH, uid, uid in ADMIN_IDS))),
+        "gate": dict(zip(("ok", "reason"), community.trading_gate(DB_PATH, uid, admin_limits(uid)))),
         "challenges": community.challenges(DB_PATH, uid)[0],
     }
 
@@ -303,7 +308,7 @@ async def trading_loop(s: dict):
                 s["pause_req"] = False
                 continue
 
-            ok, reason = community.trading_gate(DB_PATH, uid, uid in ADMIN_IDS)
+            ok, reason = community.trading_gate(DB_PATH, uid, admin_limits(uid))
             if not ok:
                 s["err"] = reason
                 break
@@ -350,7 +355,7 @@ async def trading_loop(s: dict):
                       (s["bal"]["demo"], s["bal"]["real"], json.dumps(s["hist"]["demo"][-50:]), json.dumps(s["hist"]["real"][-50:]), uid))
             conn.commit()
             conn.close()
-            community.after_trade(DB_PATH, uid, uid in ADMIN_IDS)
+            community.after_trade(DB_PATH, uid, admin_limits(uid))
 
             if s["pause_lot"] and (idx % 2 == 0) and idx < s["total"] and not s["stopped"]:
                 s["paused"] = True
@@ -476,7 +481,7 @@ async def handle_start(request: web.Request):
     s = await get_user_from_request(request)
     if not is_validated(s):
         return web.json_response({"error": "Ton accès au trading n'est pas encore validé par le mentor."}, status=403)
-    ok, reason = community.trading_gate(DB_PATH, s["uid"], s["uid"] in ADMIN_IDS)
+    ok, reason = community.trading_gate(DB_PATH, s["uid"], admin_limits(s["uid"]))
     if not ok:
         return web.json_response({"error": reason}, status=403)
     if s["running"]:
@@ -729,6 +734,16 @@ async def handle_admin_reading(request: web.Request):
     return web.json_response({"readers": out, "settings": {**community.get_settings(DB_PATH)},
                               "elite_count": community.elite_count(DB_PATH), "elite_max": community.ELITE_MAX})
 
+async def handle_admin_view(request: web.Request):
+    s = await get_user_from_request(request)
+    await check_admin(request)
+    data = await request.json()
+    if data.get("user_view"):
+        USER_VIEW.add(s["uid"])
+    else:
+        USER_VIEW.discard(s["uid"])
+    return web.json_response({"ok": True, "user_view": s["uid"] in USER_VIEW})
+
 async def handle_energy_exchange(request: web.Request):
     s = await get_user_from_request(request)
     data = await request.json()
@@ -779,6 +794,7 @@ def make_web_app() -> web.Application:
     app.router.add_post("/api/admin/settings", handle_admin_settings)
     app.router.add_post("/api/admin/lesson", handle_admin_lesson)
     app.router.add_get("/api/admin/reading", handle_admin_reading)
+    app.router.add_post("/api/admin/view", handle_admin_view)
     app.router.add_post("/api/energy/exchange", handle_energy_exchange)
     app.router.add_post("/api/admin/chat/delete", handle_admin_chat_delete)
     return app
