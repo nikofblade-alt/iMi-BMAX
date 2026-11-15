@@ -12,6 +12,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application, CommandHandler, ContextTypes
 from po_live import POLive, POError, parse_ssid
 import community
+import secretbox
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,6 +100,10 @@ def init_db():
     conn.commit()
     conn.close()
     community.init(DB_PATH)
+    secretbox.init(DB_PATH)
+    n = secretbox.migrate(DB_PATH)
+    if n:
+        logger.info(f"{n} session(s) Pocket Option chiffrée(s) au repos")
 
 USER_SESSIONS = {}
 
@@ -129,7 +134,7 @@ def get_session(uid: int, name: str = "Trader", username: str = ""):
             "po_aff_id": row[5] or "",
             "show_photo": bool(row[6]),
             "photo": row[7] or "",
-            "po_ssid": row[8] or "",
+            "po_ssid": secretbox.decrypt(row[8] or ""),
             "po_uid": row[9] or "",
             "ssid_updated_at": row[10] or 0.0,
             "ssid_warned": bool(row[11]),
@@ -465,7 +470,7 @@ async def handle_connect(request: web.Request):
 
     conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE users SET po_aff_id=?, po_ssid=?, po_uid=?, ssid_updated_at=?, ssid_warned=0, bal_demo=?, bal_real=? WHERE uid=?",
-                 (s["po_aff_id"], s["po_ssid"], s["po_uid"], now, s["bal"]["demo"], s["bal"]["real"], s["uid"]))
+                 (s["po_aff_id"], secretbox.encrypt(s["po_ssid"]), s["po_uid"], now, s["bal"]["demo"], s["bal"]["real"], s["uid"]))
     conn.commit()
     conn.close()
     return web.json_response(build_state_payload(s))
