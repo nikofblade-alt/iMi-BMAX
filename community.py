@@ -20,7 +20,7 @@ def init(db):
     c.execute("CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, name TEXT, text TEXT, is_admin INTEGER DEFAULT 0, ts REAL)")
     cols = {r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()}
     for name, ddl in (("elite", "INTEGER DEFAULT 0"), ("referred_by", "INTEGER"), ("ref_rewarded", "INTEGER DEFAULT 0"),
-                      ("energy", "INTEGER DEFAULT 0"), ("credits", "INTEGER DEFAULT 0")):
+                      ("energy", "INTEGER DEFAULT 0"), ("credits", "INTEGER DEFAULT 0"), ("sub_admin", "INTEGER DEFAULT 0")):
         if name not in cols:
             c.execute("ALTER TABLE users ADD COLUMN %s %s" % (name, ddl))
     conn.commit()
@@ -238,3 +238,56 @@ def exchange_energy(db, uid: int, amount: int) -> bool:
     ok = cur.rowcount == 1
     conn.close()
     return ok
+
+
+# --- Admins supplémentaires ---
+SUB_ADMIN_MAX = 3
+
+
+def sub_admin_ids(db) -> set:
+    conn = sqlite3.connect(db)
+    ids = {r[0] for r in conn.execute("SELECT uid FROM users WHERE sub_admin=1").fetchall()}
+    conn.close()
+    return ids
+
+
+def set_sub_admin(db, uid: int, value: bool):
+    conn = sqlite3.connect(db)
+    try:
+        if value:
+            n = conn.execute("SELECT COUNT(*) FROM users WHERE sub_admin=1 AND uid<>?", (uid,)).fetchone()[0]
+            if n >= SUB_ADMIN_MAX:
+                raise ValueError("Maximum de %d admins supplémentaires atteint." % SUB_ADMIN_MAX)
+            conn.execute("UPDATE users SET sub_admin=1, affiliate_verified=1 WHERE uid=?", (uid,))
+        else:
+            conn.execute("UPDATE users SET sub_admin=0 WHERE uid=?", (uid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def give_credits(db, uid: int, n: int) -> bool:
+    if not 1 <= n <= 100:
+        return False
+    conn = sqlite3.connect(db)
+    cur = conn.execute("UPDATE users SET credits = credits + ? WHERE uid=?", (n, uid))
+    conn.commit()
+    conn.close()
+    return cur.rowcount == 1
+
+
+def team_report(db):
+    conn = sqlite3.connect(db)
+    rows = conn.execute("SELECT uid, name, username, energy, credits FROM users WHERE sub_admin=1").fetchall()
+    out = []
+    for uid, name, username, energy, credits in rows:
+        trades = conn.execute("SELECT COUNT(*), SUM(CASE WHEN st='win' THEN 1 ELSE 0 END) FROM trades WHERE uid=?", (uid,)).fetchone()
+        secs = conn.execute("SELECT COALESCE(SUM(seconds),0) FROM lesson_views WHERE uid=?", (uid,)).fetchone()[0]
+        refs = conn.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND ref_rewarded=1", (uid,)).fetchone()[0]
+        chat_n = conn.execute("SELECT COUNT(*) FROM chat WHERE uid=?", (uid,)).fetchone()[0]
+        ch, _ = challenges(db, uid)
+        out.append({"uid": uid, "name": name, "username": username, "energy": energy or 0, "credits": credits or 0,
+                    "trades": trades[0] or 0, "wins": trades[1] or 0, "minutes": int(secs / 60), "referrals": refs, "messages": chat_n,
+                    "challenges_done": sum(1 for x in ch if x["done"]), "challenges_total": len(ch)})
+    conn.close()
+    return out
