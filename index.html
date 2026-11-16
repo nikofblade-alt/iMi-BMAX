@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>iMi BMAX</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#0c0508;
+  --accent1:#e11d48;
+  --accent2:#f59e0b;
+  --glow:rgba(225,29,72,.38);
+  --card:rgba(255,255,255,.06);
+  --border:rgba(255,255,255,.14);
+}
+*{box-sizing:border-box;transition:background-color .8s ease,border-color .8s ease,box-shadow .8s ease}
+body{margin:0;background:var(--bg);color:#f8fafc;font:14px/1.4 system-ui,-apple-system,sans-serif;transition:background 1.2s ease}
+#ph{position:relative;overflow:hidden;min-height:100vh;padding:12px 12px calc(24px + env(safe-area-inset-bottom))}
+#ph>*:not(#wm):not(.defs):not(#hudGrid){position:relative;z-index:2}
+#hudGrid{position:fixed;inset:0;background-image:radial-gradient(circle at 50% 18%,var(--glow),transparent 62%),linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:100% 100%,28px 28px,28px 28px;pointer-events:none;z-index:0}
+#wm{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;opacity:.26;pointer-events:none;z-index:1;animation:floatHero 6s ease-in-out infinite}
+#wm svg{width:100%;height:100%;max-width:440px}
+@keyframes floatHero{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.02)}}
+@keyframes pulseEye{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.65;transform:scale(.96)}}
+[hidden]{display:none!important}
+button{font:inherit;color:#f8fafc;border:1px solid var(--border);background:var(--card);border-radius:14px;cursor:pointer;backdrop-filter:blur(8px)}
+input,select{width:100%;height:42px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:0 10px;font:inherit;backdrop-filter:blur(6px)}
+.cd{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;margin-bottom:10px;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.k{color:#cbd5e1;font-size:12px;opacity:.82}.v{font-size:18px;font-weight:600}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.tc{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.btn{width:100%;height:46px;font-weight:600;border:0;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;margin-bottom:8px;box-shadow:0 4px 18px var(--glow)}
+.btn.st{background:transparent;border:1px solid #ef4444;color:#fca5a5;box-shadow:none}
+.btn.gh{background:var(--card);border:1px solid var(--border);box-shadow:none}
+.pr{width:100%;text-align:left;padding:10px 12px;margin-bottom:6px}
+.chips{display:grid;gap:6px;grid-template-columns:repeat(var(--c,3),minmax(0,1fr))}
+.ch{height:44px;position:relative;font-weight:500}
+.ch.sel{border-color:var(--accent1);background:color-mix(in srgb, var(--accent1) 24%, transparent);box-shadow:0 0 12px var(--glow)}
+.ch small{position:absolute;top:2px;right:4px;font-size:8px;color:#fbbf24;border:1px solid #fbbf24;border-radius:99px;padding:0 4px}
+.bk{background:none;border:0;color:#cbd5e1;padding:0 0 8px}
+.bar{height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin-bottom:10px}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--border);white-space:nowrap}
+.pill.w{border-color:#22c55e;color:#86efac}.pill.l{border-color:#ef4444;color:#fca5a5}.pill.o{border-color:var(--accent2);color:#fde68a}
+.lb{font-size:12px;color:#cbd5e1;margin:8px 0 6px;font-weight:600;letter-spacing:.4px}
+.gt{background:linear-gradient(90deg,var(--accent1),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800}
+.lnk{display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;color:#f8fafc;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 12px;margin-bottom:6px;backdrop-filter:blur(8px)}
+.lr{display:grid;grid-template-columns:24px 32px minmax(0,1fr) 44px 52px 64px;gap:4px;align-items:center;padding:7px 8px;border-radius:10px;background:var(--card);margin-bottom:4px;font-size:13px}
+.lr.me{border:1px solid var(--accent1)}
+.av{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#1e293b}
+.pos{color:#86efac}.neg{color:#fca5a5}
+.ur{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:6px;align-items:center;padding:8px;border-radius:10px;background:var(--card);margin-bottom:6px}
+.heroBadge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(255,255,255,.08);border:1px solid var(--border)}
+#tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:6px;padding-bottom:2px}
+#tabs::-webkit-scrollbar{display:none}
+#tabs .ch{flex:0 0 auto;padding:0 16px;height:40px;white-space:nowrap}
+.reel{width:72px;height:84px;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;border-radius:14px;border:1px solid var(--border);background:rgba(15,23,42,.6)}
+.btn:disabled{opacity:.55;cursor:default}
+.blue{accent-color:#3b82f6}
+</style></head>
+<body><div id="ph">
+<div id="hudGrid"></div>
+<svg class="defs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="bmaxChrome" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#e2e8f0"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+<linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--accent1)"/><stop offset="1" stop-color="var(--accent2)"/></linearGradient>
+<filter id="glw" x="-30%" y="-40%" width="160%" height="180%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<symbol id="imi" viewBox="0 0 280 85">
+  <rect x="6" y="10" width="268" height="64" rx="32" fill="rgba(15,23,42,.75)" stroke="url(#heroGrad)" stroke-width="2.5" filter="url(#glw)"/>
+  <circle cx="44" cy="42" r="10" fill="#fff" style="animation:pulseEye 3s infinite"/>
+  <circle cx="96" cy="42" r="10" fill="#fff" style="animation:pulseEye 3s infinite"/>
+  <line x1="54" y1="42" x2="86" y2="42" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <text x="192" y="51" font-family="system-ui,-apple-system,sans-serif" font-weight="900" font-size="28" text-anchor="middle" fill="url(#bmaxChrome)" letter-spacing="1.5">iMi <tspan fill="url(#heroGrad)">BMAX</tspan></text>
+</symbol>
+</defs></svg>
+
+<!-- ARRIERE-PLAN DYNAMIQUE HERO BMAX & BIG HERO 6 -->
+<div id="wm"><svg viewBox="0 0 360 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <!-- Halo énergétique central -->
+  <circle cx="180" cy="240" r="155" fill="none" stroke="url(#heroGrad)" stroke-width="1.5" stroke-dasharray="8 6" opacity=".55"/>
+  <circle cx="180" cy="240" r="125" fill="none" stroke="url(#heroGrad)" stroke-width="3" opacity=".35"/>
+  <!-- Silhouette Casque & Armure BMAX (Baymax) -->
+  <path d="M95 215 C95 135, 265 135, 265 215 C265 275, 235 305, 180 305 C125 305, 95 275, 95 215 Z" fill="rgba(255,255,255,.07)" stroke="url(#heroGrad)" stroke-width="3"/>
+  <!-- Visière & Yeux iconiques Baymax (•—•) -->
+  <rect x="115" y="192" width="130" height="44" rx="22" fill="rgba(10,15,28,.85)" stroke="url(#heroGrad)" stroke-width="2"/>
+  <circle cx="148" cy="214" r="11" fill="#ffffff" filter="url(#glw)"/>
+  <circle cx="212" cy="214" r="11" fill="#ffffff" filter="url(#glw)"/>
+  <line x1="159" y1="214" x2="201" y2="214" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <!-- Plastron Armure Hero + Puce d'accès -->
+  <path d="M70 345 Q180 305 290 345 L315 470 Q180 500 45 470 Z" fill="rgba(255,255,255,.05)" stroke="url(#heroGrad)" stroke-width="2.5"/>
+  <circle cx="222" cy="382" r="16" fill="rgba(255,255,255,.1)" stroke="url(#heroGrad)" stroke-width="2.5"/>
+  <rect x="215" y="378" width="14" height="8" rx="3" fill="#fff"/>
+  <!-- Icônes Crypto / Trading en orbite -->
+  <g font-family="system-ui,sans-serif" font-weight="800" text-anchor="middle" fill="#fff" font-size="13">
+    <circle cx="52" cy="120" r="24" fill="rgba(225,29,72,.25)" stroke="var(--accent1)" stroke-width="2"/><text x="52" y="125">BMAX</text>
+    <circle cx="308" cy="120" r="24" fill="rgba(245,158,11,.25)" stroke="var(--accent2)" stroke-width="2"/><text x="308" y="125">AI</text>
+    <circle cx="48" cy="310" r="22" fill="rgba(59,130,246,.2)" stroke="#60a5fa" stroke-width="1.5"/><text x="48" y="315">&#8383;</text>
+    <circle cx="312" cy="310" r="22" fill="rgba(16,185,129,.2)" stroke="#34d399" stroke-width="1.5"/><text x="312" y="315">TON</text>
+  </g>
+  <text x="180" y="525" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="15" fill="#e2e8f0" letter-spacing="3">iMi BMAX · HERO SYSTEM</text>
+</svg></div>
+
+<div class="tc" style="margin-bottom:8px">
+  <svg width="136" height="42" viewBox="0 0 280 85" aria-hidden="true"><use href="#imi" width="280" height="85"/></svg>
+  <div style="text-align:right">
+    <span class="heroBadge" id="heroActorBadge">🛡️ Mode BMAX Armor</span>
+    <div class="k" style="font-size:10px;margin-top:2px" id="heroClock">Thème dynamique actif</div>
+  </div>
+</div>
+
+<div id="tabs"><button class="ch sel" id="tT">Trading</button><button class="ch" id="tL">Cours</button><button class="ch" id="tC">Super 7</button><button class="ch" id="tD">Discussion</button><button class="ch" id="tP">Profil</button><button class="ch" id="tN">Notice</button><button class="ch" id="tAd" hidden>Admin</button></div>
+<p id="err" class="k" style="color:#fca5a5;min-height:16px;margin:0 0 6px"></p>
+
+<div id="home">
+<div class="g2" style="margin-bottom:10px"><div class="cd" style="margin:0"><div class="k">Solde démo</div><div class="v" id="hBd"></div></div><div class="cd" style="margin:0"><div class="k">Solde réel</div><div class="v" id="hBr"></div></div></div>
+<div class="chips" style="--c:2"><button class="ch" id="mD">Mode démo</button><button class="ch" id="mR">Mode réel</button></div>
+<p class="k" id="mN" style="margin:6px 0 8px"></p>
+<p class="k" id="hGate" style="color:#fbbf24;margin:0 0 8px" hidden></p>
+<p class="k" id="hLim" style="margin:0 0 8px"></p>
+<div class="cd"><div class="k">Mes trades (mode choisi)</div><div class="g3" style="margin-top:6px"><div><div class="k">Trades</div><div class="v" id="hT"></div></div><div><div class="k">Victoires</div><div class="v" id="hW"></div></div><div><div class="k">Net</div><div class="v" id="hN"></div></div></div></div>
+<button class="btn gh" id="nPrompt" hidden style="border-color:#3b82f6;color:#93c5fd">Lis la notice et coche la case pour commencer</button>
+<button class="btn" id="goP">Commencer à trader</button>
+<button class="btn gh" id="goA">Compte Pocket Option</button>
+<div class="lb">Liens utiles</div>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer"><span><b>Pocket Option</b><br><span class="k poT"></span></span>↗</a>
+<a class="lnk poC" target="_blank" rel="noopener noreferrer"><span><b>Mon cabinet Pocket Option</b><br><span class="k">Dépôts, retraits et historique</span></span>↗</a></div>
+
+<div id="acct" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Compte Pocket Option</div>
+<div class="cd"><p class="k" id="aS" style="margin:0 0 8px"></p>
+<div class="k" style="margin-bottom:6px">1. Crée ton compte via notre lien de parrainage officiel :</div>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer" style="margin-bottom:10px"><span><b>Créer mon compte Pocket Option</b><br><span class="k">Lien de parrainage requis pour l'affiliation</span></span>↗</a>
+<div class="k" style="margin-bottom:6px">2. Colle ta session Pocket Option. Dans ton navigateur : outils de développement, onglet Réseau, filtre WebSocket, puis copie le message qui commence par <b>42["auth"</b>. Il correspond au compte (démo ou réel) sur lequel tu es connecté. Aucun mot de passe n'est demandé.</div>
+<div id="connForm">
+<textarea id="poSsid" rows="4" autocomplete="off" spellcheck="false" placeholder='42["auth",{"session":"...","isDemo":1,"uid":123,"platform":2}]' style="width:100%;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:12px/1.4 ui-monospace,monospace"></textarea>
+<label class="tc" style="margin:10px 0 0;cursor:pointer;align-items:flex-start"><input id="poConsent" type="checkbox" style="width:auto;height:auto;margin-top:3px"><span class="k">J'ai lu la notice et je souhaite connecter mon compte. Ma session Pocket Option est conservée (chiffrée) par le bot pour passer les ordres, et je peux l'effacer avec « Se déconnecter ».</span></label>
+</div>
+<button class="btn" id="cn" style="margin:10px 0 0"></button></div>
+<p class="k" style="margin:0">Le robot iMi BMAX surveille ton SSID/UID et te notifiera avant son expiration pour renouveler ta session sans devoir retaper tes identifiants.</p></div>
+
+<div id="pairs" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Choisis la paire</div>
+<input id="pq" placeholder="Rechercher (EUR, OTC, Brent…)" style="margin-bottom:8px"><div id="plist"></div>
+<p class="k" style="margin:0">La direction par défaut est un point de départ ; pour les paires non marquées « vérifiée », elle n'a pas été confirmée. Tu peux l'inverser à l'étape suivante.</p></div>
+
+<div id="cfg" hidden><button class="bk" data-b="pairs">‹ Retour</button>
+<div class="cd"><div class="tc"><div><div class="k">Paire</div><div class="v" id="cP"></div></div><span class="pill o" id="cM"></span></div>
+<div class="chips" style="--c:2;margin-top:8px"><button class="ch" id="dC">Haussier (CALL)</button><button class="ch" id="dP">Baissier (PUT)</button></div></div>
+<div class="lb">Mise de départ (USD)</div><div class="chips" id="cB"></div><p class="k" id="cLock" style="margin:6px 0 0"></p>
+<div class="lb">Durée de chaque trade</div><div class="chips" id="cD" style="--c:4"></div>
+<div class="lb">Nombre de trades (par lots de 2)</div><div class="chips" id="cN"></div>
+<div class="cd" style="margin-top:10px"><div class="k">Martingale : après une perte, la mise suivante est calculée pour récupérer les pertes de la série et gagner 85 % de ta mise de départ. Un gain ramène à la mise de départ.</div>
+<div class="tc" style="margin-top:6px"><span class="k">Mise après une première perte</span><b id="mgEx"></b></div></div>
+<button class="ch" id="pl" style="width:100%;margin-bottom:10px"></button><button class="btn" id="go">Lancer iMi BMAX</button></div>
+
+<div id="run" hidden><div class="cd"><div class="bar"><div id="pb"></div></div>
+<div class="tc" style="margin-bottom:8px"><span class="pill">Trade <b id="rK"></b></span><span class="pill o" id="rL"></span></div><div class="pill" id="rP" style="margin-bottom:8px"></div>
+<div class="g2"><div><div class="k">Prochaine mise</div><div class="v" id="rA"></div></div><div><div class="k" id="rBl"></div><div class="v" id="rB"></div></div></div></div>
+<div class="cd"><div class="k">Bénéfice de la séance</div><div class="v" style="font-size:26px" id="rN"></div></div>
+<div class="g2"><button class="btn gh" id="pz">Pause</button><button class="btn st" id="stop">Stop</button></div>
+<p id="rS" class="k" style="color:#f5b942;margin:0 0 8px;min-height:16px"></p><div id="cards"></div>
+<p class="k" style="margin:0">Pause et Stop bloquent l'envoi du trade suivant ; un trade déjà ouvert ne peut pas être annulé et va jusqu'à son terme.</p></div>
+
+<div id="res" hidden><div class="cd"><div class="tc"><span class="k" id="eT"></span><span class="pill" id="eBd"></span></div>
+<div class="v" style="font-size:28px;margin:4px 0" id="eN"></div><div class="k" id="eP"></div>
+<div class="g2" style="margin-top:10px"><div class="cd" style="margin:0"><div class="k">Trades gagnés</div><div class="v" id="eW"></div></div><div class="cd" style="margin:0"><div class="k">Taux de victoire</div><div class="v" id="eR"></div></div></div>
+<div class="cd" style="margin:10px 0 0"><div class="k" id="eBl"></div><div class="v" id="eB"></div></div></div>
+<button class="btn" id="again">Commencer un nouveau trading</button><button class="btn gh" id="menu">Retour au menu</button></div>
+
+<div id="learn" hidden><div class="v" style="margin-bottom:8px">Cours du mentor</div>
+<div id="llist"></div>
+<div id="lrd" hidden><button class="bk" id="lrBack">‹ Retour aux leçons</button>
+<div class="v" id="lrT" style="margin-bottom:6px"></div>
+<div id="lrB" style="max-height:52vh;overflow-y:auto;white-space:pre-wrap;line-height:1.6;font-size:15px;padding:12px;border-radius:14px;background:var(--card);border:1px solid var(--border)"></div>
+<div class="g2" style="margin-top:8px"><button class="btn gh" id="lrPlay" style="margin:0">Pause du défilement</button><button class="btn gh" id="lrSpd" style="margin:0">Vitesse : normale</button></div>
+<p class="k" id="lrS" style="margin:8px 0 0"></p></div></div>
+
+<div id="chal" hidden><div class="v" style="margin-bottom:4px">Super 7</div>
+<p class="k" id="gSum" style="margin:0 0 8px"></p>
+<div class="cd"><div style="display:flex;gap:8px;justify-content:center;margin:6px 0 10px"><div class="reel">7</div><div class="reel">7</div><div class="reel">7</div></div>
+<div id="gRes" style="text-align:center;font-weight:700;min-height:24px;margin-bottom:8px"></div>
+<button class="btn" id="gPlay" style="margin:0">Jouer</button></div>
+<div class="cd"><div class="k" style="line-height:1.6">Prix possibles : 0, 6, 12, 24, 44, 100 ou 200 trades en plus, et le super prix <b>MyziMind</b> : 1 h de trading. Le jeu se débloque 20 h après ta dernière partie.</div></div></div>
+
+<div id="notice" hidden><div class="v" style="margin-bottom:4px">Notice</div>
+<p class="k" style="margin:0 0 8px">Quelques repères pour trader sereinement, avec méthode et discipline.</p>
+<div class="cd" style="border-color:#3b82f6"><div class="k" style="line-height:1.6">
+• Les options binaires comportent un risque de perte, et la majorité des débutants perdent. Avec un gain d'environ 85 % par trade gagné, il faut gagner plus de 54 % de tes trades pour être à l'équilibre.<br>
+• La martingale augmente la mise après une perte pour récupérer la série. Elle ne change pas tes chances de gagner : garde toujours une réserve dans ton solde.<br>
+• Ne trade qu'avec un montant que tu peux te permettre de perdre. Commence par le mode démo.<br>
+• Pause et Stop limitent seulement le nombre de trades, ils ne changent pas tes chances.<br>
+• Les résultats passés ne garantissent rien. Cette application n'est pas un conseil financier.<br>
+• Ta session Pocket Option est conservée par le bot pour passer les ordres. Tu peux l'effacer avec « Se déconnecter ».<br>
+• Pocket Option n'autorise pas officiellement les bots : ton compte peut être restreint.<br>
+• Reste discipliné, suis ton plan et avance pas à pas.</div></div>
+<label class="tc" style="cursor:pointer;justify-content:flex-start;gap:10px;margin-top:4px"><input id="nAck" class="blue" type="checkbox" style="width:22px;height:22px;flex:none"><span>J'ai lu et compris la notice</span></label>
+<p class="k" id="nSt" style="margin:8px 0 0"></p></div>
+
+<div id="chat" hidden><div class="v" style="margin-bottom:4px">Discussion</div>
+<p class="k" id="cNote" style="margin:0 0 8px"></p>
+<div id="cMsgs" style="max-height:52vh;overflow-y:auto;margin-bottom:8px"></div>
+<div id="cBox"><div class="g2" style="grid-template-columns:minmax(0,1fr) auto"><input id="cIn" maxlength="500" placeholder="Partage une idée pour progresser…"><button class="ch" id="cSend" style="padding:0 16px">Envoyer</button></div>
+<p class="k" style="margin:6px 0 0">Sois respectueux. Ici, on échange des idées, pas des promesses de gains.</p></div></div>
+
+<div id="prof" hidden><div class="cd"><div class="k">Profil Telegram</div><div class="v" id="pN"></div><div class="k">Alias affiché dans le classement : <b id="pA"></b></div>
+<label class="tc" style="margin-top:8px;cursor:pointer"><span class="k">Afficher ma photo dans le classement</span><input id="showPhoto" type="checkbox" style="width:auto;height:auto"></label></div>
+<div class="cd" id="vwBox" hidden><div class="k" id="vwInfo"></div><button class="btn" id="vwBtn" style="margin:6px 0 0"></button></div>
+<div class="lb">Mon niveau</div><div class="cd"><div class="k" id="pLv"></div></div>
+<div class="lb">Parrainage</div>
+<div class="cd"><div class="k" id="rfInfo"></div><input id="rfLink" readonly style="margin-top:6px"><button class="btn" id="rfCopy" style="margin:6px 0 0">Copier mon lien</button>
+<div class="k" id="rfStat" style="margin-top:8px"></div>
+<div class="tc" style="margin-top:6px"><span class="k">Énergies : <b id="rfEn">0</b> · 1 énergie = 1 trade en plus</span></div>
+<div class="g2" style="margin-top:6px"><input id="rfX" inputmode="numeric" placeholder="Nombre d'énergies"><button class="btn" id="rfBtn" style="margin:0">Échanger</button></div></div>
+<div class="lb">Mes soldes Pocket Option</div>
+<div class="cd"><div class="tc"><span class="k">Solde démo</span><b id="pBd"></b></div><div id="sD"></div></div>
+<div class="cd"><div class="tc"><span class="k">Solde réel</span><b id="pBr"></b></div><div id="sR"></div><div class="k" id="pRn" style="margin-top:4px"></div></div>
+<a class="lnk poL" target="_blank" rel="noopener noreferrer"><span><b>Pocket Option</b><br><span class="k poT"></span></span>↗</a>
+<div class="lb" style="margin-top:12px">Classement</div>
+<div class="chips" style="--c:2;margin-bottom:8px"><button class="ch" id="lD" style="height:36px">Démo</button><button class="ch" id="lR" style="height:36px">Réel</button></div>
+<div class="lr k"><span></span><span></span><span>Alias</span><span>Trades</span><span>Victoire</span><span style="text-align:right">Profit</span></div><div id="lbl"></div>
+<p class="k" style="margin:6px 0 0">Tous les utilisateurs apparaissent avec un alias (seules les premières lettres du nom Telegram sont visibles), leur nombre de trades, leur taux de victoire et leur profit, jamais leurs soldes. Photo visible seulement si la personne l'a activé. Il faut 10 trades pour être classé.</p></div>
+
+<div id="admin" hidden><button class="bk" data-b="home">‹ Retour</button><div class="v" style="margin-bottom:8px">Panneau administrateur · iMi BMAX</div>
+<div class="lb">Trading pour tout le monde</div>
+<div class="cd"><button class="btn" id="stSwitch"></button>
+<div class="g2"><div><div class="k" style="margin-bottom:4px">Ouverture (heure de Goma)</div><input id="stOpen" type="time"></div><div><div class="k" style="margin-bottom:4px">Fermeture</div><input id="stClose" type="time"></div></div>
+<div class="k" style="margin:8px 0 4px">Trades par jour pour chaque élève (avant défis)</div><input id="stBase" inputmode="numeric">
+<div class="k" style="margin:8px 0 4px">Trades par jour pour les membres élite (sans défis)</div><input id="stElite" inputmode="numeric">
+<div class="k" style="margin:8px 0 4px">Message affiché si le trading est suspendu (facultatif)</div><input id="stNotice" maxlength="300">
+<p class="k" style="margin:6px 0">Ouverture et fermeture identiques : toujours ouvert. Un trade déjà ouvert va jusqu'à son terme.</p>
+<button class="btn" id="stSave" style="margin:0">Enregistrer</button></div>
+<div class="lb">Cours : publier une leçon</div>
+<div class="cd"><input id="lsTitle" placeholder="Titre de la leçon" maxlength="120">
+<textarea id="lsBody" rows="6" placeholder="Texte de la leçon" style="width:100%;margin-top:6px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.55);color:#f8fafc;padding:10px;font:inherit"></textarea>
+<button class="btn" id="lsAdd" style="margin:8px 0 0">Publier</button><div id="lsList" style="margin-top:8px"></div></div>
+<div class="lb">Équipe d'admins</div><div class="cd"><div class="k" id="tmInfo"></div><div id="tmList"></div></div>
+<div class="lb">Suivi de lecture et membres élite</div><div class="k" id="rdElite" style="margin-bottom:6px"></div><div id="rdList"></div>
+<div class="lb">Tous les inscrits</div>
+<div id="ulist"></div>
+<div class="lb">Groupes</div>
+<div class="cd"><div class="g2"><input id="gName" placeholder="Nom du groupe"><input id="gBase" placeholder="Mise max" inputmode="decimal"></div>
+<div class="g2" style="margin-top:6px"><input id="gTotal" placeholder="Trades max" inputmode="numeric"><input id="gK" placeholder="Doublements max" inputmode="numeric"></div>
+<label class="tc" style="margin-top:6px;cursor:pointer"><span class="k">Mode réel autorisé pour ce groupe</span><input id="gReal" type="checkbox" checked style="width:auto;height:auto"></label>
+<button class="btn" id="gSave" style="margin-top:8px">Enregistrer le groupe</button></div>
+<div class="lb" id="gqLb" hidden>Super 7 : résultats à ajuster</div>
+<div class="cd" id="gqBox" hidden><div class="k" style="margin-bottom:6px">Les 3 prochaines parties (tous joueurs confondus) prennent ces résultats dans l'ordre. « Aléatoire » : tirage normal pour cette partie.</div>
+<select id="gq0"></select><select id="gq1" style="margin-top:6px"></select><select id="gq2" style="margin-top:6px"></select>
+<button class="btn" id="gqSave" style="margin:8px 0 0">Enregistrer</button><div class="k" id="gqLog" style="margin-top:8px"></div></div>
+</div>
+</div>
+
+<script>
+// === SYSTEME DE THEME DYNAMIQUE BIG HERO 6 (CHANGE SELON LES HEURES & ACTEURS) ===
+const HERO_THEMES = [
+  { name: "🛡️ BMAX Armor (Baymax)", bg: "#14050a", a1: "#e11d48", a2: "#f59e0b", glow: "rgba(225,29,72,.38)" },
+  { name: "🤖 Hiro Hamada (Microbots)", bg: "#090617", a1: "#6366f1", a2: "#a855f7", glow: "rgba(99,102,241,.38)" },
+  { name: "⚡ GoGo Tomago (Vitesse)", bg: "#120f04", a1: "#eab308", a2: "#f97316", glow: "rgba(234,179,8,.35)" },
+  { name: "🧪 Honey Lemon (Chimie)", bg: "#140613", a1: "#ec4899", a2: "#fbbf24", glow: "rgba(236,72,153,.35)" },
+  { name: "⚔️ Wasabi (Plasma Laser)", bg: "#04120c", a1: "#10b981", a2: "#06b6d4", glow: "rgba(16,185,129,.35)" },
+  { name: "🔥 Fredzilla (Kaiju Fire)", bg: "#070c18", a1: "#2563eb", a2: "#f97316", glow: "rgba(37,99,235,.38)" }
+];
+// Niveaux : à partir de Bronze, les couleurs de l'app suivent le niveau de l'élève (le calcul du score reste secret côté serveur).
+const LEVEL_THEMES = [
+  null,
+  { name: "Niveau Bronze", bg: "#150c05", a1: "#cd7f32", a2: "#8c5a2b", glow: "rgba(205,127,50,.38)" },
+  { name: "Niveau Argent", bg: "#0b0f16", a1: "#cbd5e1", a2: "#64748b", glow: "rgba(203,213,225,.30)" },
+  { name: "Niveau Or", bg: "#161104", a1: "#facc15", a2: "#f59e0b", glow: "rgba(250,204,21,.38)" },
+  { name: "Niveau Diamant", bg: "#04111b", a1: "#22d3ee", a2: "#a78bfa", glow: "rgba(34,211,238,.40)" }
+];
+const LEVEL_NAMES = ["Débutant","Bronze","Argent","Or","Diamant"];
+let userLevel = 0;
+let themeOffset = 0;
+function applyHeroTheme() {
+  const hour = new Date().getHours();
+  // Change automatiquement toutes les 4 heures selon les 6 héros du dessin animé (ou au clic sur le badge)
+  const idx = (Math.floor(hour / 4) + themeOffset) % HERO_THEMES.length;
+  const t = (userLevel > 0 && LEVEL_THEMES[userLevel]) || HERO_THEMES[idx];
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg);
+  r.setProperty('--accent1', t.a1);
+  r.setProperty('--accent2', t.a2);
+  r.setProperty('--glow', t.glow);
+  const badge = document.getElementById('heroActorBadge');
+  if (badge) badge.textContent = t.name;
+}
+applyHeroTheme();
+setInterval(applyHeroTheme, 60000);
+document.getElementById('heroActorBadge').onclick = () => { if (userLevel === 0) { themeOffset++; applyHeroTheme(); } };
+
+const tg=window.Telegram&&Telegram.WebApp;if(tg){tg.ready();tg.expand();}
+const REF='https://u3.shortink.io/register?utm_campaign=873648&utm_source=affiliate&utm_medium=sr&a=SvDENKgyK8gU3U&al=1811306&ac=myzimindoza&cid=991602&code=MYZIMIND';
+const CAB='https://pocketoption.com/en/cabinet/';
+const $=id=>document.getElementById(id);
+const esc=x=>String(x==null?'':x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f2=x=>(Math.round(x*100)/100).toFixed(2);
+const sg=x=>(x>0?'+':x<0?'-':'')+'$'+f2(Math.abs(x));
+const DL=d=>d==='call'?'Haussier':'Baissier';
+const cls=x=>x>0?'pos':x<0?'neg':'';
+const bal=x=>x==null?'–':'$'+f2(x);
+let S=null,view='home',wasRunning=false,lastPlaced=0,lbMode='demo',poll=null;
+const VIEWS=['home','acct','pairs','cfg','run','res','prof','admin','learn','chal','chat','notice'];
+const show=v=>{stopReader();stopChat();view=v;VIEWS.forEach(n=>{const e=$(n);if(e)e.hidden=n!==v;});
+  $('tT').classList.toggle('sel',['home','acct','pairs','cfg','run','res'].includes(v));
+  $('tAd').classList.toggle('sel',v==='admin');$('tP').classList.toggle('sel',v==='prof');
+  $('tL').classList.toggle('sel',v==='learn');$('tC').classList.toggle('sel',v==='chal');$('tD').classList.toggle('sel',v==='chat');$('tN').classList.toggle('sel',v==='notice');
+  if(v==='learn')loadLessons();if(v==='chal')refresh().then(renderGame);if(v==='notice')renderNotice();if(v==='chat')startChat();
+  if(v==='prof')renderProf();if(v==='admin')loadAdmin();if(v==='pairs')renderPairs();if(v==='acct')renderAcct();if(v==='cfg')renderCfg();
+  if(S)render();};
+const setErr=m=>{$('err').textContent=m||'';};
+async function api(path,method,body){
+  const opt={method:method||'GET',headers:{'X-Init-Data':tg?tg.initData:'','Content-Type':'application/json'}};
+  if(body!==undefined)opt.body=JSON.stringify(body);
+  try{
+    const r=await fetch(path,opt);let j={};
+    try{j=await r.json();}catch(e){}
+    if(!r.ok){setErr(j.error||('Erreur '+r.status));return null;}
+    setErr('');return j;
+  }catch(e){setErr('Connexion au serveur impossible.');return null;}
+}
+async function act(path,body){const j=await api(path,'POST',body||{});if(j&&j.uid!==undefined){S=j;render();}return j;}
+async function refresh(){const j=await api('/api/state');if(j){S=j;render();}return j;}
+
+const DURS=[5,15,30,60],BASES=[1,2,5,10],TOTALS=[2,4,6,8,10,12];
+function chips(id,arr,cur,fn,fmt){
+  const el=$(id);el.innerHTML='';
+  arr.forEach(v=>{const b=document.createElement('button');b.className='ch'+(v===cur?' sel':'');
+    b.textContent=fmt?fmt(v):v;b.onclick=()=>fn(v);el.appendChild(b);});
+}
+const modeKey=()=>S.mode==='real'?'real':'demo';
+function spark(arr){
+  if(!arr||arr.length<2)return '';
+  const mn=Math.min(...arr),mx=Math.max(...arr),rg=(mx-mn)||1;
+  const pts=arr.map((v,i)=>(i*(300/(arr.length-1))).toFixed(1)+','+(40-((v-mn)/rg)*36-2).toFixed(1)).join(' ');
+  return '<svg viewBox="0 0 300 40" width="100%" height="40"><polyline fill="none" stroke="url(#heroGrad)" stroke-width="2" points="'+pts+'"/></svg>';
+}
+
+function render(){
+  if(!S)return;
+  const lvl=(S.level&&S.level.n)||0;if(lvl!==userLevel){userLevel=lvl;applyHeroTheme();}
+  $('tAd').hidden=!S.is_admin||S.user_view;$('tD').hidden=!S.validated;
+  const gateMsg=!S.validated?'Ton accès au trading attend la validation du mentor. En attendant, lis les cours.':(S.gate.ok?'':S.gate.reason);
+  $('hGate').textContent=gateMsg;$('hGate').hidden=!gateMsg;
+  $('hLim').textContent="Trades aujourd'hui : "+S.limit.used+'/'+S.limit.limit+(S.elite?' (membre élite, limite fixe)':'')+(S.limit.credits?' · +'+S.limit.credits+' trades gagnés (jeu, parrainage)':'')+(S.limit.unlimited_until?' · MyziMind actif jusqu\'à '+new Date(S.limit.unlimited_until*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'');
+  document.querySelectorAll('.poL').forEach(a=>a.href=REF);
+  document.querySelectorAll('.poC').forEach(a=>a.href=CAB);
+  $('nPrompt').hidden=!!S.notice_ack;if(view==='notice')renderNotice();
+  document.querySelectorAll('.poT').forEach(a=>a.textContent='Ouvrir Pocket Option');
+  $('hBd').textContent=bal(S.bal.demo);$('hBr').textContent=bal(S.bal.real);
+  $('mD').classList.toggle('sel',S.mode==='demo');$('mR').classList.toggle('sel',S.mode==='real');
+  $('mN').textContent=S.real_ok?'':'Mode réel verrouillé : il faut un compte connecté avec au moins $1 de solde réel et un groupe autorisé.';
+  const m=S.tr[modeKey()];
+  $('hT').textContent=m.w+m.l;$('hW').textContent=m.w;$('hN').textContent=sg(m.n);$('hN').className='v '+cls(m.n);
+  const connected=S.conn.demo||S.conn.real;
+  $('cn').textContent=connected?'Se déconnecter':'Connecter mon compte';
+  $('connForm').hidden=connected;
+  $('aS').textContent=connected?('Compte connecté'+(S.po_aff_id?' · ID '+S.po_aff_id:'')+(S.affiliate_verified?' · affiliation validée':' · en attente de validation par l\'admin')):'Compte non connecté.';
+  if(view==='cfg')renderCfg();
+  if(view==='run'||view==='res')renderRun();
+  if(S.running&&view!=='run'){show('run');return;}
+  if(wasRunning&&!S.running&&view==='run'){showResult();}
+  wasRunning=S.running;
+}
+
+function renderAcct(){}
+function renderPairs(){
+  const q=($('pq').value||'').toLowerCase();const box=$('plist');box.innerHTML='';
+  S.pairs.forEach((p,i)=>{
+    if(q&&!p.n.toLowerCase().includes(q))return;
+    const ps=S.pstats[p.n];
+    const b=document.createElement('button');b.className='pr';
+    b.innerHTML='<div class="tc"><b>'+esc(p.n)+'</b><span class="pill'+(p.verified?' w':'')+'">'+(p.verified?'vérifiée':'non vérifiée')+'</span></div><div class="k">'+DL(p.d)+(ps?' · '+ps.w+'V / '+ps.l+'D · '+sg(ps.n):'')+'</div>';
+    b.onclick=async()=>{const j=await act('/api/config',{pair:i});if(j)show('cfg');};
+    box.appendChild(b);
+  });
+}
+function renderCfg(){
+  const p=S.pairs[S.p];
+  $('cP').textContent=p.n;$('cM').textContent=S.mode==='real'?'RÉEL':'DÉMO';
+  $('dC').classList.toggle('sel',S.dir==='call');$('dP').classList.toggle('sel',S.dir==='put');
+  chips('cB',BASES,S.base,v=>act('/api/config',{base:v}),v=>'$'+v);
+  const locked=(S.bal.real||0)<1000,bs=$('cB').children;
+  BASES.forEach((v,i)=>{if(v>=10&&locked&&bs[i]){bs[i].disabled=true;bs[i].style.opacity='.45';bs[i].textContent='$'+v+' 🔒';}});
+  $('cLock').textContent=locked?'La mise de $10 se débloque quand ton solde réel atteint $1000.':'';
+  chips('cD',DURS,S.dur,v=>act('/api/config',{dur:v}),v=>v+' s');
+  chips('cN',TOTALS,S.total,v=>act('/api/config',{total:v}));
+  $('mgEx').textContent='$'+f2(Math.ceil((S.base+S.base/0.85)*100)/100);
+  $('pl').textContent='Pause après chaque lot de 2 trades : '+(S.pause_lot?'Oui':'Non');
+  $('pl').classList.toggle('sel',S.pause_lot);
+}
+function renderRun(){
+  const m=modeKey();
+  $('rK').textContent=S.placed+'/'+S.total;
+  $('rL').textContent=S.paused?'En pause':S.pause_req?'Pause demandée':S.stopped?'Arrêt demandé':S.running?'En cours':'Terminé';
+  $('rP').textContent=S.pairs[S.p].n+' · '+DL(S.dir);
+  $('rA').textContent='$'+f2(S.next);
+  $('rBl').textContent='Solde '+(m==='real'?'réel':'démo');$('rB').textContent=bal(S.bal[m]);
+  $('rN').textContent=sg(S.net);$('rN').className='v '+cls(S.net);$('rN').style.fontSize='26px';
+  $('pb').style.width=(S.total?Math.min(100,100*S.placed/S.total):0)+'%';
+  $('pz').textContent=S.paused?'Reprendre':S.pause_req?'Annuler la pause':'Pause';
+  $('rS').textContent=S.err||'';
+  const now=Date.now()/1000;
+  $('cards').innerHTML=S.trades.slice().reverse().map(t=>{
+    const open=t.st==='open';const left=open?Math.max(0,Math.ceil(t.end-now)):0;
+    return '<div class="cd"><div class="tc"><span>Trade '+t.i+' · $'+f2(t.stake)+'</span><span class="pill '+(t.st==='win'?'w':t.st==='loss'?'l':'o')+'">'+(open?'ouvert '+left+'s':t.st==='win'?'gagné '+sg(t.pnl):t.st==='draw'?'égalité':'perdu '+sg(t.pnl))+'</span></div></div>';
+  }).join('');
+}
+function showResult(){
+  const m=modeKey();const w=S.trades.filter(t=>t.st==='win').length,n=S.trades.filter(t=>t.st!=='open').length;
+  $('eT').textContent='Séance terminée · '+(m==='real'?'Réel':'Démo');
+  $('eBd').textContent=S.mode==='real'?'RÉEL':'DÉMO';
+  $('eN').textContent=sg(S.net);$('eN').className='v '+cls(S.net);
+  $('eP').textContent=S.pairs[S.p].n+' · '+DL(S.dir);
+  $('eW').textContent=w+'/'+n;$('eR').textContent=n?f2(100*w/n)+' %':'–';
+  $('eBl').textContent='Solde '+(m==='real'?'réel':'démo');$('eB').textContent=bal(S.bal[m]);
+  show('res');
+}
+function renderProf(){
+  if(!S)return;
+  $('pN').textContent=S.name;$('pA').textContent=S.alias;$('showPhoto').checked=!!S.show_photo;
+  $('pBd').textContent=bal(S.bal.demo);$('pBr').textContent=bal(S.bal.real);
+  $('sD').innerHTML=spark(S.hist.demo);$('sR').innerHTML=spark(S.hist.real);
+  $('vwBox').hidden=!S.is_admin;
+  $('vwInfo').textContent=S.user_view?'Mode utilisateur : tu vois l\'app comme un élève (limite du jour, défis).':'Mode mentor : tu as la limite élite et le panneau Admin.';
+  $('vwBtn').textContent=S.user_view?'Revenir en mode mentor':'Passer en mode utilisateur';
+  $('pLv').textContent=LEVEL_NAMES[userLevel]+(userLevel>0?' : les couleurs de l\'app suivent ton niveau.':' : progresse (cours, discussion, entraînement en démo) pour débloquer des couleurs.');
+  const R=S.ref||{};
+  $('rfInfo').textContent='Invite un ami avec ton lien. Quand le mentor le valide, tu reçois '+(R.per_referral||5)+' énergies, échangeables contre des trades en plus.';
+  $('rfLink').value=R.link||'(lien indisponible)';$('rfCopy').hidden=!R.link;
+  $('rfStat').textContent=(R.referred||0)+' invité(s) · '+(R.validated||0)+' validé(s) par le mentor';
+  $('rfEn').textContent=R.energy||0;
+  $('pRn').textContent=S.real_ok?'':'Mode réel verrouillé pour ce compte.';
+  $('lD').classList.toggle('sel',lbMode==='demo');$('lR').classList.toggle('sel',lbMode==='real');
+  const rows=S.lb[lbMode];
+  const me=S.me[lbMode];
+  let h=rows.map(r=>lrow(r)).join('');
+  if(!rows.some(r=>r.me))h+='<div class="k" style="margin:6px 0 2px">Ta position ('+me.t+'/'+S.min_trades+' trades pour être classé)</div>'+lrow(me);
+  $('lbl').innerHTML=h||'<div class="k">Aucun utilisateur classé pour le moment.</div>';
+}
+function lvBadge(n){n=n||0;if(n<1)return '';const t=LEVEL_THEMES[n];return '<span title="'+LEVEL_NAMES[n]+'" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;background:linear-gradient(135deg,'+t.a1+','+t.a2+');box-shadow:0 0 6px '+t.glow+'"></span>';}
+function lrow(r){
+  return '<div class="lr'+(r.me?' me':'')+'"><span>'+(r.rank||'–')+'</span>'+(/^https:\/\//.test(r.photo||'')?'<img class="av" src="'+esc(r.photo)+'">':'<span></span>')+'<span>'+lvBadge(r.lv)+esc(r.a)+'</span><span>'+r.t+'</span><span>'+f2(r.r)+'%</span><span class="'+cls(r.p)+'" style="text-align:right">'+sg(r.p)+'</span></div>';
+}
+
+async function loadAdmin(){
+  const j=await api('/api/admin/users');if(!j)return;
+  $('ulist').innerHTML='';
+  j.users.forEach(u=>{
+    const d=document.createElement('div');d.className='ur';
+    d.innerHTML='<div><b>'+esc(u.name||u.uid)+'</b><div class="k">'+(u.username?'@'+esc(u.username)+' · ':'')+'ID '+u.uid+' · PO '+esc(u.po_aff_id)+(u.running?' · en cours':'')+'</div></div>';
+    const bAff=document.createElement('button');bAff.className='ch';bAff.style.height='34px';bAff.textContent=u.affiliate_verified?'Affilié':'Valider';
+    bAff.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.affiliate_verified});loadAdmin();};
+    const bBl=document.createElement('button');bBl.className='ch';bBl.style.height='34px';bBl.textContent=u.blocked?'Débloquer':'Bloquer';
+    bBl.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadAdmin();};
+    const sel=document.createElement('select');sel.style.height='34px';sel.style.width='auto';
+    j.groups.forEach(g=>{const o=document.createElement('option');o.value=g.name;o.textContent=g.name;if(g.name===u.group)o.selected=true;sel.appendChild(o);});
+    sel.onchange=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'group',value:sel.value});loadAdmin();};
+    d.appendChild(bAff);d.appendChild(bBl);d.appendChild(sel);$('ulist').appendChild(d);
+  });
+  renderSettings();loadAdminLessons();loadReaders();loadTeam();loadGameAdmin();
+}
+const minToStr=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const strToMin=t=>{if(!t)return 0;const p=t.split(':').map(Number);return p[0]*60+p[1];};
+function renderSettings(){
+  if(!S)return;const st=S.settings;
+  $('stSwitch').textContent=st.trading_enabled?'Trading ouvert : appuie pour TOUT SUSPENDRE':'Trading SUSPENDU : appuie pour rouvrir';
+  $('stSwitch').className='btn'+(st.trading_enabled?' st':'');
+  $('stOpen').value=st.open;$('stClose').value=st.close;$('stBase').value=st.base_daily;$('stElite').value=st.elite_daily;$('stNotice').value=st.notice||'';
+}
+async function loadAdminLessons(){
+  const j=await api('/api/lessons');if(!j)return;
+  const box=$('lsList');box.innerHTML='';
+  j.lessons.forEach((l,i)=>{
+    const d=document.createElement('div');d.className='tc';d.style.marginBottom='6px';
+    const t=document.createElement('span');t.textContent=(i+1)+'. '+l.title;
+    const b=document.createElement('button');b.className='ch';b.style.height='32px';b.style.padding='0 12px';b.textContent='Supprimer';
+    b.onclick=async()=>{if(confirm('Supprimer cette leçon et son suivi de lecture ?')){await api('/api/admin/lesson','POST',{action:'delete',id:l.id});loadAdminLessons();loadReaders();}};
+    d.appendChild(t);d.appendChild(b);box.appendChild(d);
+  });
+}
+async function loadTeam(){
+  const j=await api('/api/admin/team');if(!j)return;
+  $('tmInfo').textContent=S.is_owner?('Admins ajoutés : '+j.team.length+'/'+j.max+'. Ils gèrent les élèves, mais pas les autres admins.'):'Les admins ajoutés par le propriétaire.';
+  const box=$('tmList');box.innerHTML='';
+  j.team.forEach(m=>{
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr)';
+    const nm=document.createElement('b');nm.textContent=m.name||m.uid;
+    const st=document.createElement('div');st.className='k';
+    st.textContent='Défis '+m.challenges_done+'/'+m.challenges_total+' · '+m.minutes+' min de lecture · '+m.trades+' trades ('+m.wins+' gagnés) · '+m.messages+' messages · '+m.referrals+' filleuls validés · énergies '+m.energy+' · trades offerts restants '+m.credits;
+    const bx=document.createElement('div');bx.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:6px';
+    const bR=document.createElement('button');bR.className='ch';bR.style.height='34px';bR.textContent='Offrir des trades';
+    bR.onclick=async()=>{const n=parseInt(prompt('Combien de trades offrir à '+(m.name||m.uid)+' ? (1 à 100)')||'0',10);if(n>0){const r=await api('/api/admin/user','POST',{uid:m.uid,action:'reward',value:n});if(r){setErr(n+' trades offerts.');loadTeam();}}};
+    bx.appendChild(bR);
+    if(S.is_owner){const bD=document.createElement('button');bD.className='ch';bD.style.height='34px';bD.textContent='Remettre utilisateur';
+      bD.onclick=async()=>{if(confirm('Retirer l\'accès admin à '+(m.name||m.uid)+' ?')){const r=await api('/api/admin/user','POST',{uid:m.uid,action:'subadmin',value:false});if(r){loadTeam();loadReaders();}}};
+      bx.appendChild(bD);}
+    d.appendChild(nm);d.appendChild(st);d.appendChild(bx);box.appendChild(d);
+  });
+  if(!j.team.length){box.innerHTML='<div class="k">Aucun admin ajouté. Utilise le bouton « Admin » dans la liste ci-dessous.</div>';}
+}
+async function loadReaders(){
+  const j=await api('/api/admin/reading');if(!j)return;
+  $('rdElite').textContent='Membres élite : '+j.elite_count+'/'+j.elite_max+' (limite fixe, pas de défis).';
+  const box=$('rdList');box.innerHTML='';
+  if(!j.readers.length){box.innerHTML='<div class="k">Aucun inscrit pour le moment.</div>';return;}
+  j.readers.forEach(u=>{
+    const d=document.createElement('div');d.className='ur';d.style.gridTemplateColumns='minmax(0,1fr)';
+    const info=document.createElement('div');
+    const nm=document.createElement('b');nm.textContent=u.name||u.uid;
+    const st=document.createElement('div');st.className='k';
+    st.textContent=u.read+'/'+u.total+' leçons lues · '+u.seen+' vues · '+Math.round(u.seconds/60)+' min'+(u.last_seen?' · vu le '+new Date(u.last_seen*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):' · jamais');
+    info.appendChild(nm);info.appendChild(st);
+    const bV=document.createElement('button');bV.className='ch';bV.style.height='34px';bV.textContent=u.validated?'Retirer l\'accès':'Valider';
+    bV.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'affiliate',value:!u.validated});loadReaders();};
+    const bB=document.createElement('button');bB.className='ch';bB.style.height='34px';bB.textContent=u.blocked?'Débloquer':'Bloquer';
+    bB.onclick=async()=>{await api('/api/admin/user','POST',{uid:u.uid,action:'block',value:!u.blocked});loadReaders();};
+    const bE=document.createElement('button');bE.className='ch'+(u.elite?' sel':'');bE.style.height='34px';bE.textContent=u.elite?'Élite ✓':'Élite';
+    bE.onclick=async()=>{const r=await api('/api/admin/user','POST',{uid:u.uid,action:'elite',value:!u.elite});if(r)loadReaders();};
+    const bx=document.createElement('div');bx.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:6px';
+    const bL=document.createElement('button');bL.className='ch';bL.style.height='34px';bL.textContent='Niveau '+LEVEL_NAMES[u.level]+' · score '+u.score;
+    bL.onclick=async()=>{const v=prompt('Score secret de '+(u.name||u.uid)+' : '+u.score+' (niveau calculé : '+LEVEL_NAMES[u.level_computed]+').\nDébloquer un niveau pour cette personne : 0 Débutant, 1 Bronze, 2 Argent, 3 Or, 4 Diamant. 0 retire le déblocage.',String(u.level_unlock));if(v===null)return;const r=await api('/api/admin/user','POST',{uid:u.uid,action:'level',value:parseInt(v,10)});if(r)loadReaders();};
+    bx.appendChild(bV);bx.appendChild(bE);bx.appendChild(bL);bx.appendChild(bB);
+    if(S.is_owner&&!u.owner){const bA=document.createElement('button');bA.className='ch'+(u.sub_admin?' sel':'');bA.style.height='34px';bA.textContent=u.sub_admin?'Admin ✓':'Admin';
+      bA.onclick=async()=>{if(!u.sub_admin&&!confirm('Donner l\'accès admin à '+(u.name||u.uid)+' ?'))return;const r=await api('/api/admin/user','POST',{uid:u.uid,action:'subadmin',value:!u.sub_admin});if(r){loadReaders();loadTeam();}};
+      bx.appendChild(bA);}
+    d.appendChild(info);d.appendChild(bx);box.appendChild(d);
+  });
+}
+
+const GQ_OPTS=[['rand','Aléatoire'],['0','0 trade'],['6','+6 trades'],['12','+12 trades'],['24','+24 trades'],['44','+44 trades'],['100','+100 trades'],['200','+200 trades'],['myzi','MyziMind : 1 h de trading']];
+async function loadGameAdmin(){
+  if(!S||!S.is_owner)return;
+  $('gqLb').hidden=false;$('gqBox').hidden=false;
+  const j=await api('/api/admin/game');if(!j)return;
+  [0,1,2].forEach(i=>{const sel=$('gq'+i);sel.innerHTML=GQ_OPTS.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join('');sel.value=j.queue[i]||'rand';});
+  $('gqLog').textContent=j.recent.length?'Dernières parties : '+j.recent.map(r=>(r.name||'?')+' → '+r.label+(r.forced?' (ajusté)':'')).join(' · '):'Aucune partie jouée pour le moment.';
+}
+$('gqSave').onclick=async()=>{
+  const q=[0,1,2].map(i=>$('gq'+i).value);while(q.length&&q[q.length-1]==='rand')q.pop();
+  const j=await api('/api/admin/game','POST',{queue:q});if(j){setErr('Résultats enregistrés.');loadGameAdmin();}
+};
+
+// --- Cours ---
+let lessons=[],cur=null,scrollTimer=null,pingTimer=null,scrolling=true,pos=0,speedIdx=1;
+const SPEEDS=[[0.5,'lente'],[1,'normale'],[2,'rapide']];
+function stopReader(){clearInterval(scrollTimer);clearInterval(pingTimer);scrollTimer=pingTimer=null;cur=null;}
+async function loadLessons(){
+  stopReader();$('lrd').hidden=true;$('llist').hidden=false;
+  const j=await api('/api/lessons');if(!j)return;lessons=j.lessons;
+  const box=$('llist');box.innerHTML='';
+  if(!lessons.length){box.innerHTML='<div class="k">Aucune leçon publiée pour le moment.</div>';return;}
+  lessons.forEach((l,i)=>{
+    const b=document.createElement('button');b.className='pr';
+    b.innerHTML='<div class="tc"><b>'+(i+1)+'. '+esc(l.title)+'</b><span class="pill'+(l.read?' w':'')+'">'+(l.read?'lue':l.seconds>0?'en cours':'nouvelle')+'</span></div>';
+    b.onclick=()=>openLesson(l);box.appendChild(b);
+  });
+}
+function updRd(){
+  if(!cur)return;
+  $('lrS').textContent=cur.seconds>=cur.required?'Lecture validée. Merci d\'avoir pris le temps.':'Temps de lecture : '+cur.seconds+' s sur '+cur.required+' s nécessaires pour valider la leçon.';
+  $('lrPlay').textContent=scrolling?'Pause du défilement':'Reprendre le défilement';
+  $('lrSpd').textContent='Vitesse : '+SPEEDS[speedIdx][1];
+}
+async function pingLesson(){
+  if(!cur||document.visibilityState!=='visible')return;
+  const j=await api('/api/lesson/ping','POST',{lesson_id:cur.id});
+  if(j&&cur){cur.seconds=j.seconds;updRd();}
+}
+function openLesson(l){
+  stopReader();cur=l;$('llist').hidden=true;$('lrd').hidden=false;$('lrT').textContent=l.title;
+  const body=$('lrB');body.textContent=l.body;body.scrollTop=0;pos=0;scrolling=true;updRd();
+  scrollTimer=setInterval(()=>{
+    if(!scrolling||document.visibilityState!=='visible')return;
+    pos+=SPEEDS[speedIdx][0];body.scrollTop=pos;
+    if(body.scrollTop+body.clientHeight>=body.scrollHeight-1){scrolling=false;updRd();}
+  },50);
+  pingLesson();pingTimer=setInterval(pingLesson,10000);
+}
+['touchstart','wheel','mousedown'].forEach(ev=>$('lrB').addEventListener(ev,()=>{scrolling=false;updRd();},{passive:true}));
+
+// --- Super 7 ---
+const GFACES={myzi:['7','7','7'],'200':['💎','💎','💎'],'100':['⭐','⭐','⭐'],'44':['🍒','🍒','🍒'],'24':['🔔','🔔','🔔'],'12':['7','7','🍒'],'6':['⭐','⭐','🔔'],'0':['🍒','🔔','7']};
+const GALL=['7','🍒','🔔','⭐','💎'];
+let gBusy=false;
+function fmtLeft(sec){sec=Math.max(0,Math.ceil(sec));return Math.floor(sec/3600)+'h'+String(Math.floor((sec%3600)/60)).padStart(2,'0');}
+function renderGame(){
+  if(!S||!S.game)return;const G=S.game,now=Date.now()/1000,can=G.can_play||now>=G.next_at;
+  $('gPlay').disabled=gBusy||!can;
+  $('gPlay').textContent=can?'Jouer':'Prochaine partie dans '+fmtLeft(G.next_at-now);
+  let t='Tente ta chance : le tirage t\'offre des trades en plus.';
+  if(S.limit&&S.limit.credits)t+=' Trades gagnés disponibles : '+S.limit.credits+'.';
+  if(G.unlimited_until>now)t+=' MyziMind actif jusqu\'à '+new Date(G.unlimited_until*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+'.';
+  $('gSum').textContent=t;
+}
+$('gPlay').onclick=async()=>{
+  if(gBusy)return;gBusy=true;$('gPlay').disabled=true;$('gRes').textContent='';
+  const reels=[...document.querySelectorAll('.reel')];
+  const spin=setInterval(()=>reels.forEach(r=>r.textContent=GALL[Math.floor(Math.random()*GALL.length)]),80);
+  const t0=Date.now();const j=await api('/api/game/play','POST',{});
+  await new Promise(r=>setTimeout(r,Math.max(0,1400-(Date.now()-t0))));clearInterval(spin);
+  if(j){const f=GFACES[j.prize]||GFACES['0'];reels.forEach((r,i)=>r.textContent=f[i]);$('gRes').textContent=(j.myzi?'🎉 ':j.trades>0?'✨ ':'')+j.label;}
+  else reels.forEach(r=>r.textContent='7');
+  gBusy=false;await refresh();renderGame();
+};
+setInterval(()=>{if(view==='chal')renderGame();},1000);
+
+// --- Notice ---
+function renderNotice(){
+  if(!S)return;$('nAck').checked=!!S.notice_ack;$('nAck').disabled=!!S.notice_ack;
+  $('nSt').textContent=S.notice_ack?'Merci, tu peux lancer ta séance.':'Coche la case pour pouvoir lancer une séance.';
+}
+$('nAck').onchange=e=>{if(e.target.checked)act('/api/notice/ack').then(()=>renderNotice());};
+$('tN').onclick=()=>show('notice');
+$('nPrompt').onclick=()=>show('notice');
+// Les liens s'ouvrent via Telegram (plus fiable que target=_blank dans la mini-app)
+document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('a.lnk');if(!a||!a.href)return;e.preventDefault();if(tg&&tg.openLink)tg.openLink(a.href);else window.open(a.href,'_blank');});
+
+// --- Discussion ---
+let chatLast=0,chatTimer=null;
+function stopChat(){clearInterval(chatTimer);chatTimer=null;}
+function addMsg(m){
+  const d=document.createElement('div');d.className='cd';d.style.padding='8px 11px';d.style.marginBottom='6px';if(m.me)d.style.borderColor='var(--accent1)';
+  const h=document.createElement('div');h.className='tc';
+  const n=document.createElement('b');n.textContent=m.name||'Élève';n.style.fontSize='13px';
+  h.appendChild(n);
+  const r=document.createElement('span');r.className='k';
+  if(m.mentor){const p=document.createElement('span');p.className='pill o';p.textContent='mentor';r.appendChild(p);}
+  if(S&&S.is_admin){const x=document.createElement('button');x.textContent='✕';x.style.marginLeft='6px';x.style.padding='0 8px';x.onclick=async()=>{await api('/api/admin/chat/delete','POST',{id:m.id});d.remove();};r.appendChild(x);}
+  h.appendChild(r);
+  const t=document.createElement('div');t.textContent=m.text;t.style.whiteSpace='pre-wrap';t.style.marginTop='3px';
+  d.appendChild(h);d.appendChild(t);$('cMsgs').appendChild(d);
+}
+async function pollChat(){
+  const j=await api('/api/chat?after='+chatLast);if(!j)return;
+  const box=$('cMsgs');const atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-30||chatLast===0;
+  j.messages.forEach(m=>{chatLast=Math.max(chatLast,m.id);addMsg(m);});
+  if(j.messages.length&&atEnd)box.scrollTop=box.scrollHeight;
+}
+function startChat(){
+  stopChat();chatLast=0;$('cMsgs').innerHTML='';
+  if(!S||!S.validated){$('cNote').textContent='La discussion est réservée aux élèves validés par le mentor.';$('cBox').hidden=true;return;}
+  $('cNote').textContent='';$('cBox').hidden=false;pollChat();chatTimer=setInterval(pollChat,4000);
+}
+
+// --- Événements ---
+$('tT').onclick=()=>show(S&&S.running?'run':'home');
+$('tP').onclick=()=>show('prof');
+$('tL').onclick=()=>show('learn');
+$('tC').onclick=()=>show('chal');
+$('tD').onclick=()=>show('chat');
+$('lrBack').onclick=()=>loadLessons();
+$('lrPlay').onclick=()=>{scrolling=!scrolling;pos=$('lrB').scrollTop;updRd();};
+$('lrSpd').onclick=()=>{speedIdx=(speedIdx+1)%SPEEDS.length;updRd();};
+$('cSend').onclick=async()=>{const t=$('cIn').value.trim();if(!t)return;const j=await api('/api/chat','POST',{text:t});if(j){$('cIn').value='';pollChat();}};
+$('cIn').onkeydown=e=>{if(e.key==='Enter')$('cSend').click();};
+$('stSwitch').onclick=async()=>{if(S.settings.trading_enabled&&!confirm('Suspendre le trading pour tous les élèves ?'))return;await api('/api/admin/settings','POST',{trading_enabled:!S.settings.trading_enabled});await refresh();renderSettings();};
+$('vwBtn').onclick=async()=>{const j=await api('/api/admin/view','POST',{user_view:!S.user_view});if(j){await refresh();renderProf();}};
+$('rfCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('rfLink').value);setErr('Lien copié.');}catch(e){$('rfLink').select();}};
+$('rfBtn').onclick=async()=>{const n=parseInt($('rfX').value||'0',10);if(!(n>0))return;const j=await api('/api/energy/exchange','POST',{amount:n});if(j){$('rfX').value='';await refresh();renderProf();}};
+$('stSave').onclick=async()=>{const j=await api('/api/admin/settings','POST',{open_min:strToMin($('stOpen').value),close_min:strToMin($('stClose').value),base_daily:parseInt($('stBase').value||'0',10),elite_daily:parseInt($('stElite').value||'0',10),notice:$('stNotice').value});if(j){await refresh();renderSettings();}};
+$('lsAdd').onclick=async()=>{const j=await api('/api/admin/lesson','POST',{action:'add',title:$('lsTitle').value,body:$('lsBody').value});if(j){$('lsTitle').value='';$('lsBody').value='';loadAdminLessons();}};
+$('tAd').onclick=()=>show('admin');
+document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>show(b.dataset.b));
+$('mD').onclick=()=>act('/api/config',{mode:'demo'});
+$('mR').onclick=()=>act('/api/config',{mode:'real'});
+$('goA').onclick=()=>show('acct');
+$('goP').onclick=()=>{
+  if(S&&!S.validated){setErr('Ton accès au trading n\'est pas encore validé par le mentor.');return;}
+  if(S&&!S.gate.ok){setErr(S.gate.reason);return;}
+  if(S&&!(S.conn.demo||S.conn.real)){setErr('Connecte d\'abord ton compte Pocket Option.');show('acct');return;}
+  if(S&&!S.notice_ack){setErr('Lis la notice et coche la case avant de commencer.');show('notice');return;}
+  show('pairs');
+};
+$('pq').oninput=renderPairs;
+$('dC').onclick=()=>act('/api/config',{dir:'call'});
+$('dP').onclick=()=>act('/api/config',{dir:'put'});
+$('pl').onclick=()=>act('/api/config',{pause_lot:!S.pause_lot});
+$('go').onclick=async()=>{const j=await act('/api/start');if(j){wasRunning=true;show('run');}};
+$('pz').onclick=()=>act('/api/pause');
+$('stop').onclick=()=>act('/api/stop');
+$('again').onclick=()=>show('pairs');
+$('menu').onclick=()=>show('home');
+$('cn').onclick=async()=>{
+  if(S.conn.demo||S.conn.real){await act('/api/disconnect');return;}
+  $('cn').disabled=true;$('cn').textContent='Connexion…';
+  const j=await act('/api/connect',{ssid:$('poSsid').value,consent:$('poConsent').checked});
+  $('cn').disabled=false;render();
+  if(j)$('poSsid').value='';
+};
+$('showPhoto').onchange=e=>act('/api/config',{show_photo:e.target.checked}).then(()=>renderProf());
+$('lD').onclick=()=>{lbMode='demo';renderProf();};
+$('lR').onclick=()=>{lbMode='real';renderProf();};
+$('gSave').onclick=async()=>{
+  const j=await api('/api/admin/group','POST',{name:$('gName').value,max_base:$('gBase').value,max_total:$('gTotal').value,max_k:$('gK').value,real_allowed:$('gReal').checked});
+  if(j)loadAdmin();
+};
+
+refresh().then(()=>{if(S&&S.running)show('run');else show('home');});
+setInterval(()=>{if(view==='run'||(S&&S.running))refresh();},1500);
+</script>
+</body></html>
